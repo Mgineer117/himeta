@@ -21,3 +21,8 @@ config: {'project': 'hmrl', 'name': 'ppo-04c0-seed:1', 'task': 'MetaGym-ML10', '
 2024-06-25 15:14:27,242 INFO    MainThread:615438 [wandb_run.py:_on_init():2411] got version response upgrade_message: "wandb version 0.17.3 is available!  To upgrade, please run:\n $ pip install wandb --upgrade"
 
 2024-06-25 15:14:27,242 INFO    MainThread:615438 [wandb_init.py:init():795] starting run threads in backend
+2024-06-25 15:14:28,666 INFO    MainThread:615438 [wandb_run.py:_console_start():2380] atexit reg
+2024-06-25 15:14:28,666 INFO    MainThread:615438 [wandb_run.py:_redirect():2235] redirect: wrap_raw
+2024-06-25 15:14:28,666 INFO    MainThread:615438 [wandb_run.py:_redirect():2300] Wrapping output streams.
+2024-06-25 15:14:28,666 INFO    MainThread:615438 [wandb_run.py:_redirect():2325] Redirects installed.
+2024-06-25 15:14:28,667 INFO    MainThread:615438 [wandb_init.py:init():838] run started, returning control to user process

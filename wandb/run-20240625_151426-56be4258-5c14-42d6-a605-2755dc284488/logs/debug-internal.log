@@ -27,3 +27,25 @@
 2024-06-25 15:14:27,262 INFO    HandlerThread:615552 [system_monitor.py:probe():224] Finished collecting system info
 2024-06-25 15:14:27,262 INFO    HandlerThread:615552 [system_monitor.py:probe():227] Publishing system info
 2024-06-25 15:14:27,263 DEBUG   HandlerThread:615552 [system_info.py:_save_conda():209] Saving list of conda packages installed into the current environment
+2024-06-25 15:14:28,030 INFO    Thread-12 :615552 [dir_watcher.py:_on_file_created():271] file/dir created: /home/minjae-cho/Documents/minjae/research/projects/himeta/wandb/run-20240625_151426-56be4258-5c14-42d6-a605-2755dc284488/files/conda-environment.yaml
+2024-06-25 15:14:28,628 DEBUG   HandlerThread:615552 [system_info.py:_save_conda():224] Saving conda packages done
+2024-06-25 15:14:28,628 INFO    HandlerThread:615552 [system_monitor.py:probe():229] Finished publishing system info
+2024-06-25 15:14:28,630 DEBUG   SenderThread:615552 [sender.py:send():379] send: files
+2024-06-25 15:14:28,630 INFO    SenderThread:615552 [sender.py:_save_file():1454] saving file wandb-metadata.json with policy now
+2024-06-25 15:14:28,665 DEBUG   HandlerThread:615552 [handler.py:handle_request():158] handle_request: python_packages
+2024-06-25 15:14:28,666 DEBUG   SenderThread:615552 [sender.py:send_request():406] send_request: python_packages
+2024-06-25 15:14:28,666 DEBUG   HandlerThread:615552 [handler.py:handle_request():158] handle_request: stop_status
+2024-06-25 15:14:28,666 DEBUG   SenderThread:615552 [sender.py:send_request():406] send_request: stop_status
+2024-06-25 15:14:28,667 DEBUG   HandlerThread:615552 [handler.py:handle_request():158] handle_request: internal_messages
+2024-06-25 15:14:28,883 DEBUG   SenderThread:615552 [sender.py:send():379] send: telemetry
+2024-06-25 15:14:29,030 INFO    Thread-12 :615552 [dir_watcher.py:_on_file_modified():288] file/dir modified: /home/minjae-cho/Documents/minjae/research/projects/himeta/wandb/run-20240625_151426-56be4258-5c14-42d6-a605-2755dc284488/files/conda-environment.yaml
+2024-06-25 15:14:29,030 INFO    Thread-12 :615552 [dir_watcher.py:_on_file_created():271] file/dir created: /home/minjae-cho/Documents/minjae/research/projects/himeta/wandb/run-20240625_151426-56be4258-5c14-42d6-a605-2755dc284488/files/requirements.txt
+2024-06-25 15:14:29,030 INFO    Thread-12 :615552 [dir_watcher.py:_on_file_created():271] file/dir created: /home/minjae-cho/Documents/minjae/research/projects/himeta/wandb/run-20240625_151426-56be4258-5c14-42d6-a605-2755dc284488/files/output.log
+2024-06-25 15:14:29,030 INFO    Thread-12 :615552 [dir_watcher.py:_on_file_created():271] file/dir created: /home/minjae-cho/Documents/minjae/research/projects/himeta/wandb/run-20240625_151426-56be4258-5c14-42d6-a605-2755dc284488/files/wandb-metadata.json
+2024-06-25 15:14:29,057 INFO    wandb-upload_0:615552 [upload_job.py:push():130] Uploaded file /tmp/tmpgvkeen01wandb/qffjqxi4-wandb-metadata.json
+2024-06-25 15:14:29,667 DEBUG   HandlerThread:615552 [handler.py:handle_request():158] handle_request: internal_messages
+2024-06-25 15:14:30,667 DEBUG   HandlerThread:615552 [handler.py:handle_request():158] handle_request: internal_messages
+2024-06-25 15:14:31,031 INFO    Thread-12 :615552 [dir_watcher.py:_on_file_modified():288] file/dir modified: /home/minjae-cho/Documents/minjae/research/projects/himeta/wandb/run-20240625_151426-56be4258-5c14-42d6-a605-2755dc284488/files/output.log
+2024-06-25 15:14:31,668 DEBUG   HandlerThread:615552 [handler.py:handle_request():158] handle_request: internal_messages
+2024-06-25 15:14:31,885 DEBUG   HandlerThread:615552 [handler.py:handle_request():158] handle_request: status_report
+2024-06-25 15:14:32,667 DEBUG   HandlerThread:615552 [handler.py:handle_request():158] handle_request: internal_messages

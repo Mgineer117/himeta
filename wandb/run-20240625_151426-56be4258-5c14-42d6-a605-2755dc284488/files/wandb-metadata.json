@@ -1,0 +1,208 @@
+{
+    "os": "Linux-6.8.0-35-generic-x86_64-with-glibc2.39",
+    "python": "3.10.14",
+    "heartbeatAt": "2024-06-25T20:14:27.259410",
+    "startedAt": "2024-06-25T20:14:26.669104",
+    "docker": null,
+    "cuda": null,
+    "args": [],
+    "state": "running",
+    "program": "/home/minjae-cho/Documents/minjae/research/projects/himeta/run_ppo.py",
+    "codePathLocal": "run_ppo.py",
+    "codePath": "run_ppo.py",
+    "git": {
+        "remote": "https://github.com/Mgineer117/himeta.git",
+        "commit": "6e9113e5a332fa15bbaf712e36fa6cc14ad99488"
+    },
+    "email": "whalswo117@gmail.com",
+    "root": "/home/minjae-cho/Documents/minjae/research/projects/himeta",
+    "host": "minjae-cho-System-Product-Name",
+    "username": "minjae-cho",
+    "executable": "/home/minjae-cho/miniconda3/envs/rl/bin/python3",
+    "cpu_count": 16,
+    "cpu_count_logical": 32,
+    "cpu_freq": {
+        "current": 2518.5792812500003,
+        "min": 400.0,
+        "max": 5759.0
+    },
+    "cpu_freq_per_core": [
+        {
+            "current": 400.0,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 4985.102,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 4064.205,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 4968.113,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 5028.404,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 5003.198,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 4962.182,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 400.0,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 400.0,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 5235.053,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 400.0,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 400.0,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 400.0,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 400.0,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 5239.849,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 400.0,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 400.0,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 400.0,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 5014.747,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 5001.468,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 400.0,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 4987.867,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 400.0,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 4966.066,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 400.0,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 400.0,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 400.0,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 5254.393,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 400.0,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 5202.37,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 5234.138,
+            "min": 400.0,
+            "max": 5759.0
+        },
+        {
+            "current": 400.0,
+            "min": 400.0,
+            "max": 5759.0
+        }
+    ],
+    "disk": {
+        "/": {
+            "total": 1336.6077766418457,
+            "used": 87.25998306274414
+        }
+    },
+    "gpu": "NVIDIA GeForce RTX 4080 SUPER",
+    "gpu_count": 1,
+    "gpu_devices": [
+        {
+            "name": "NVIDIA GeForce RTX 4080 SUPER",
+            "memory_total": 17171480576
+        }
+    ],
+    "memory": {
+        "total": 62.00896072387695
+    }
+}
