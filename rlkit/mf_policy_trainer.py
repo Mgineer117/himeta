@@ -198,8 +198,8 @@ class MFPolicyTrainer:
 
         for p in processes:
             p.join() 
-
-        for _ in range(i - 1): 
+        
+        for _ in range(i): 
             task_dict, rew_mean, suc_mean, f_suc_mean = queue.get()
             eval_dict.update(task_dict)
             rew_sum += rew_mean; suc_sum += suc_mean; f_suc_sum += f_suc_mean

@@ -258,7 +258,7 @@ class OnlineSampler:
                 env_idx += 1
             for p in processes:
                 p.join()        
-
+        
         worker_memories = [None] * (worker_idx - 1)
         for _ in range(worker_idx - 1): 
             pid, worker_memory = queue.get()
