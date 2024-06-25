@@ -49,7 +49,7 @@ def get_args():
     parser.add_argument("--critic-lr", type=float, default=7e-4)
     parser.add_argument("--IL-lr", type=float, default=1e-3)
     parser.add_argument("--HL-lr", type=float, default=1e-3)
-    parser.add_argument("--drop-out-rate", type=float, default=0.7)
+    parser.add_argument("--drop-out-rate", type=float, default=0.9)
     parser.add_argument("--occ-loss-type", type=str, default='exp') # exp, log, linear, none
     parser.add_argument("--embed-dim", type=int, default=5)
     parser.add_argument("--mask-type", type=str, default='ego') # ego or other or none # this is for skill embedding
@@ -84,9 +84,11 @@ def train(args=get_args()):
         # create env and dataset
         args.task = '-'.join((args.env_type, args.agent_type))
         if args.env_type =='MetaGym':
-            training_envs, testing_envs = load_metagym_env(args.task, args.task_name, args.task_num, render_mode='rgb_array')
+            training_envs, testing_envs, training_tasks, testing_tasks = load_metagym_env(args.task, args.task_name, args.task_num, render_mode='rgb_array')
         else:
             NotImplementedError
+        args.training_tasks = training_tasks
+        args.testing_tasks = testing_tasks
 
         # get dimensional parameters
         args.obs_shape = training_envs[0].observation_space.shape
@@ -200,7 +202,8 @@ def train(args=get_args()):
             embed_dim=args.embed_dim,
             log_interval=args.log_interval,
             visualize_latent_space=args.visualize_latent_space,
-            seed=seed
+            seed=seed,
+            device=args.device
         )
 
         # train

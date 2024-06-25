@@ -7,6 +7,7 @@ import cv2
 import numpy as np
 import torch
 from torch.utils.tensorboard import SummaryWriter
+import torch.multiprocessing as multiprocessing
 import gym
 import wandb
 from copy import deepcopy
@@ -75,6 +76,7 @@ class MFPolicyTrainer:
         log_interval: int = 20,
         visualize_latent_space:bool = False,
         seed: int = 0,
+        device=torch.device('cpu')
     ) -> None:
         self.policy = policy
         self.sampler = sampler
@@ -112,12 +114,14 @@ class MFPolicyTrainer:
         self.recorded_frames = []
 
         self.seed = seed
+        self.device = device
     
     def train(self) -> Dict[str, float]:
         start_time = time.time()
 
         last_3_reward_performance = deque(maxlen=3)
         last_3_success_performance = deque(maxlen=3)
+        last_3_final_success_performance = deque(maxlen=3)
         # train loop
         for e in trange(self._init_epoch, self._epoch, desc=f"Epoch"):
             self.current_epoch = e
@@ -126,9 +130,10 @@ class MFPolicyTrainer:
             for it in trange(self._init_step_per_epoch, self._step_per_epoch, desc=f"Training", leave=False):
                 if e == 0 and it == 0:
                     # first iter evaluate
-                    rew_sum, suc_sum = self._evaluate(e, it)
+                    rew_sum, suc_sum, f_suc_sum = self._evaluate(e, it)
                     last_3_reward_performance.append(rew_sum)
                     last_3_success_performance.append(suc_sum)
+                    last_3_final_success_performance.append(f_suc_sum)
 
                 if self.visualize_latent_space and self.embed_dim > 0:
                     self.init_latent_path(e, it)
@@ -146,9 +151,10 @@ class MFPolicyTrainer:
                 self.lr_scheduler.step()
             
             # evaluate current policy
-            rew_sum, suc_sum = self._evaluate(e, it)
+            rew_sum, suc_sum, f_suc_sum = self._evaluate(e, it)
             last_3_reward_performance.append(rew_sum)
             last_3_success_performance.append(suc_sum)
+            last_3_final_success_performance.append(f_suc_sum)
 
             # save checkpoint
             if self.current_epoch % self.log_interval == 0:
@@ -162,61 +168,65 @@ class MFPolicyTrainer:
         self.logger.print("total time: {:.2f}s".format(time.time() - start_time))
         self.writer.close()
         return {"last_3_reward_performance": np.mean(last_3_reward_performance),
-                "last_3_success_performance": np.mean(last_3_success_performance)}
-    
-    def average_dict(self, dict_list):
-        sums = {}
-        counts = {}
-        for d in dict_list:
-            for key, value in d.items():
-                if key in sums:
-                    sums[key] += value
-                    counts[key] += 1
-                else:
-                    sums[key] = value
-                    counts[key] = 1
-        averages = {key: sums[key] / counts[key] for key in sums}
-        return averages
+                "last_3_success_performance": np.mean(last_3_success_performance),
+                "last_3_final_success_performance": np.mean(last_3_final_success_performance),
+                }
 
     def _evaluate(self, e, it) -> Dict[str, List[float]]:
         self.policy.eval()
-        rew_sum = 0; suc_sum = 0
+        self.policy.to_device()
 
-        train_dict = {}
-        for env in self.training_envs:
-            task_dict, rew_mean, suc_mean = self.eval_loop(env)
-            train_dict.update(task_dict)
-            rew_sum += rew_mean; suc_sum += suc_mean
+        rew_sum = 0; suc_sum = 0; f_suc_sum = 0
 
-        test_dict = {}
-        for env in self.testing_envs:
-            task_dict, rew_mean, suc_mean = self.eval_loop(env)
-            test_dict.update(task_dict)
-            rew_sum += rew_mean; suc_sum += suc_mean
+        eval_dict = {}
+        envs_list = self.training_envs + self.testing_envs
 
-        eval_dict = {**train_dict, **test_dict}
-                
+        queue = multiprocessing.Manager().Queue()
+        processes = []
+        
+        for i, env in enumerate(envs_list):
+            if i == len(envs_list) - 1:
+                '''Main thread process'''
+                task_dict, rew_mean, suc_mean, f_suc_mean = self.eval_loop(env, queue=None)
+                eval_dict.update(task_dict)
+                rew_sum += rew_mean; suc_sum += suc_mean; f_suc_sum += f_suc_mean
+            else:
+                '''Sub-thread process'''
+                p = multiprocessing.Process(target=self.eval_loop, args=(env, queue))
+                processes.append(p)
+                p.start()
+
+        for p in processes:
+            p.join() 
+
+        for _ in range(i - 1): 
+            task_dict, rew_mean, suc_mean, f_suc_mean = queue.get()
+            eval_dict.update(task_dict)
+            rew_sum += rew_mean; suc_sum += suc_mean; f_suc_sum += f_suc_mean
+
         # eval logging
         self.logger.store(**eval_dict)        
         self.logger.write(int(e*self._step_per_epoch + it), display=False)
         for key, value in eval_dict.items():
             self.writer.add_scalar(key, value, int(e*self._step_per_epoch + it))
         
+        self.policy.to_device(self.device)
         self.policy.train()
         
-        return rew_sum, suc_sum
+        return rew_sum, suc_sum, f_suc_sum
     
-    def eval_loop(self, env) -> Dict[str, List[float]]:
+    def eval_loop(self, env, queue=None) -> Dict[str, List[float]]:
         num_episodes = 0
         eval_ep_info_buffer = []
         while num_episodes < self._eval_episodes:
             # initialization
-            s, _ = env.reset(seed=self.seed)
+            max_success = 0.0
+            s, _ = env.reset(seed=self.seed + num_episodes)
             a = np.zeros((self.action_dim, ))
             ns = s 
             done = False
             input_tuple = (s, a, ns, np.array([0]), np.array([1]))
-            episode_reward, episode_length, episode_success = 0, 0, 0
+            episode_reward, episode_length, episode_success, episode_final_success = 0, 0, 0, 0
             self.recorded_frames = []
 
             self.policy.init_encoder_hidden_info()                
@@ -226,6 +236,7 @@ class MFPolicyTrainer:
 
                 ns, rew, trunc, term, infos = env.step(a.flatten()); success = infos['success']
                 done = term or trunc; mask = 0 if done else 1
+                max_success = np.maximum(max_success, success)
                 
                 if self.current_epoch % self.log_interval == 0:
                     if self.rendering and num_episodes == 0:
@@ -233,6 +244,7 @@ class MFPolicyTrainer:
                 
                 episode_reward += rew
                 episode_success += success
+                episode_final_success += max_success
                 episode_length += 1
                 
                 # state encoding
@@ -248,22 +260,37 @@ class MFPolicyTrainer:
 
                     eval_ep_info_buffer.append(
                         {env.task_name + "_reward": episode_reward, 
-                            env.task_name + "_success":episode_success/episode_length}
+                         env.task_name + "_success":episode_success/episode_length,
+                         env.task_name + "_final_success":episode_final_success/episode_length,
+                        }
                     )
                     num_episodes +=1
-                    episode_reward, episode_length, episode_success = 0, 0, 0
+                    episode_reward, episode_length, episode_success, episode_final_success = 0, 0, 0, 0
 
         task_reward_list = [ep_info[env.task_name + "_reward"] for ep_info in eval_ep_info_buffer]
         task_success_list = [ep_info[env.task_name + "_success"] for ep_info in eval_ep_info_buffer]
+        task_final_success_list = [ep_info[env.task_name + "_final_success"] for ep_info in eval_ep_info_buffer]
 
         task_eval_dict = {
             "eval_reward_mean/" + env.task_name: np.mean(task_reward_list),
             "eval_success_mean/" + env.task_name: np.mean(task_success_list),
+            "eval_final_success_mean/" + env.task_name: np.mean(task_final_success_list),
             "eval_reward_std/" + env.task_name: np.std(task_reward_list),
             "eval_success_std/" + env.task_name: np.std(task_success_list),
+            "eval_final_success_std/" + env.task_name: np.std(task_final_success_list),
         }
 
-        return task_eval_dict, np.mean(task_reward_list), np.mean(task_success_list)
+        if np.mean(task_reward_list) >= 5000:
+            print('warnming')
+            print(np.mean(task_reward_list))
+            print(task_reward_list)
+            print(task_eval_dict)
+            print(task_success_list)
+
+        if queue is not None:
+            queue.put([task_eval_dict, np.mean(task_reward_list), np.mean(task_success_list), np.mean(task_final_success_list)])
+        else:
+            return task_eval_dict, np.mean(task_reward_list), np.mean(task_success_list), np.mean(task_final_success_list)
     
     def save_rendering(self, directory):
         if not os.path.exists(directory):

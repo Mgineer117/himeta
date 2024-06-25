@@ -312,7 +312,7 @@ def load_metagym_env(key, task: str = None, task_num: int = None, render_mode: s
             env.set_task(task)
             env.task_name = task.env_name[:-3]
             training_envs.append(env)
-            training_tasks.append(task)
+            training_tasks.append(task.env_name[:-3])
         testing_envs = []
         testing_tasks = []
         for name, env_cls in ml.test_classes.items():
@@ -322,7 +322,7 @@ def load_metagym_env(key, task: str = None, task_num: int = None, render_mode: s
             env.set_task(task)
             env.task_name = task.env_name[:-3]
             testing_envs.append(env)
-            testing_tasks.append(task)
+            testing_tasks.append(task.env_name[:-3])
     elif key == 'MetaGym-MT10':
         ml = metaworld.MT10()
         training_envs = []
@@ -336,4 +336,4 @@ def load_metagym_env(key, task: str = None, task_num: int = None, render_mode: s
         eval_env_idx = random.choice(range(len(training_envs)))
         testing_envs = training_envs[eval_env_idx]
 
-    return training_envs, testing_envs
+    return training_envs, testing_envs, training_tasks, testing_tasks

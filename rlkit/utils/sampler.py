@@ -263,20 +263,6 @@ class OnlineSampler:
         for _ in range(worker_idx - 1): 
             pid, worker_memory = queue.get()
             worker_memories[pid] = worker_memory
-            '''
-            try:
-                print('------------------')
-                print(np.mean(prev_mem['states'] - worker_memory['states']))
-                print(np.mean(prev_mem['actions'] - worker_memory['actions']))
-                print(np.mean(prev_mem['rewards'] - worker_memory['rewards']))
-                print(np.mean(prev_mem['ys'] - worker_memory['ys']))
-                print(np.mean(prev_mem['zs'] - worker_memory['zs']))
-            except:
-                pass
-                
-            prev_mem = worker_memory
-            '''
-            
         
         if latent_path is not None:
             '''draw latent variable !!!'''
