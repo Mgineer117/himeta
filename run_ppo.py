@@ -49,7 +49,7 @@ def get_args():
     parser.add_argument("--critic-lr", type=float, default=7e-4)
     parser.add_argument("--IL-lr", type=float, default=1e-3)
     parser.add_argument("--HL-lr", type=float, default=1e-3)
-    parser.add_argument("--drop-out-rate", type=float, default=0.9)
+    parser.add_argument("--drop-out-rate", type=float, default=0.7)
     parser.add_argument("--occ-loss-type", type=str, default='exp') # exp, log, linear, none
     parser.add_argument("--embed-dim", type=int, default=5)
     parser.add_argument("--mask-type", type=str, default='ego') # ego or other or none # this is for skill embedding
