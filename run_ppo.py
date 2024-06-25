@@ -65,7 +65,7 @@ def get_args():
     parser.add_argument('--episode-len', type=int, default=500)
     parser.add_argument('--episode-num', type=int, default=10)
     parser.add_argument("--eval_episodes", type=int, default=2)
-    parser.add_argument("--rendering", action='store_true')
+    parser.add_argument("--rendering", action='store_false')
     parser.add_argument("--visualize-latent-space", type=bool, default=True)
     parser.add_argument("--import-policy", type=bool, default=False)
     parser.add_argument("--gpu-idx", type=int, default=0)
