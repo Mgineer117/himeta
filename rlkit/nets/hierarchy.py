@@ -1,0 +1,437 @@
+import numpy as np
+import torch
+import torch.nn as nn
+from torch.nn import functional as F
+from typing import Dict, List, Union, Tuple, Optional
+
+from rlkit.nets.rnn import RecurrentEncoder
+from rlkit.nets.mlp import MLP
+from rlkit.modules import ActorProb, Critic, DiagGaussian
+
+class GumbelSoftmax(nn.Module):
+    def __init__(self, f_dim, c_dim, device):
+        super(GumbelSoftmax, self).__init__()
+        self.logits = nn.Linear(f_dim, c_dim).to(device)
+        self.f_dim = f_dim
+        self.c_dim = c_dim
+        self.device = device
+
+    def sample_gumbel(self, shape, is_cuda=False, eps=1e-20):
+        U = torch.rand(shape)
+        if is_cuda:
+            U = U.cuda()
+        return -torch.log(-torch.log(U + eps) + eps)
+
+    def gumbel_softmax_sample(self, logits, temperature):
+        y = logits + self.sample_gumbel(logits.size(), logits.is_cuda)
+        return F.softmax(y / temperature, dim=-1)
+
+    def gumbel_softmax(self, logits, temperature, hard=False):
+        """
+        ST-gumple-softmax
+        input: [*, n_class]
+        return: flatten --> [*, n_class] an one-hot vector
+        """
+        y = self.gumbel_softmax_sample(logits, temperature)
+
+        if not hard:
+            return y
+
+        shape = y.size()
+        _, ind = y.max(dim=-1)
+        y_hard = torch.zeros_like(y).view(-1, shape[-1])
+        y_hard.scatter_(1, ind.view(-1, 1), 1)
+        y_hard = y_hard.view(*shape)
+        # Set gradients w.r.t. y_hard gradients w.r.t. y
+        y_hard = (y_hard - y).detach() + y
+        return y_hard
+
+    def forward(self, x, temperature=1.0, hard=False):
+        logits = self.logits(x).view(-1, self.c_dim)
+        prob = F.softmax(logits, dim=-1)
+        y = self.gumbel_softmax(logits, temperature, hard)
+        return logits, prob, y.squeeze()
+    
+
+class LLmodel(nn.Module):
+    def __init__(
+            self, 
+            actor_hidden_dim: tuple,
+            critic_hidden_dim:tuple,
+            state_dim: int,
+            action_dim: int,
+            latent_dim: int,
+            policy_masking_indices: List,
+            max_action: int = 1.0,
+            device = torch.device("cpu")
+            ):
+        super(LLmodel, self).__init__() #- len(masking_indices)
+        actor_backbone = MLP(input_dim=latent_dim + state_dim - len(policy_masking_indices), hidden_dims=actor_hidden_dim, 
+                             activation=torch.nn.Tanh)
+        critic_backbone = MLP(input_dim=latent_dim + state_dim, hidden_dims=critic_hidden_dim, 
+                              activation=torch.nn.Tanh)
+        
+        dist = DiagGaussian(
+            latent_dim=getattr(actor_backbone, "output_dim"),
+            output_dim=action_dim,
+            unbounded=False,
+            conditioned_sigma=True,
+            max_mu=max_action,
+            sigma_min=-0.5,
+            sigma_max=0.5
+        )
+
+        actor = ActorProb(actor_backbone,
+                          dist_net=dist,
+                          device=device)   
+                
+        critic = Critic(critic_backbone, 
+                        device=device)
+
+        self.actor = actor
+        self.critic = critic   
+
+        self.param_size = sum(p.numel() for p in self.actor.parameters())
+        self.device = device
+
+    def change_device_info(self, device):
+        self.actor.device = device
+        self.critic.device = device
+        self.device = device
+
+    def actforward(
+        self,
+        obs: torch.Tensor,
+        deterministic: bool = False,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        dist = self.actor(obs)
+        if deterministic:
+            action = dist.mode()
+        else:
+            action = dist.rsample()
+        logprob = dist.log_prob(action)
+        return action, logprob
+
+    def select_action(
+        self,
+        obs,
+        deterministic: bool = False
+    ) -> np.ndarray:
+        with torch.no_grad():
+            action, logprob = self.actforward(obs, deterministic)
+        return action.cpu().numpy(), logprob.cpu().numpy()
+
+class ILmodel(nn.Module):
+    def __init__(
+        self,
+        state_dim: int,
+        action_dim: int,
+        latent_dim: int,
+        masking_indices: List,
+        policy_masking_indices: List,
+        drop_out_rate: float = 0.7,
+        device = torch.device("cpu")
+    ) -> None:
+        super(ILmodel, self).__init__()
+        # save parameter first
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        self.latent_dim = latent_dim
+        self.masking_indices = masking_indices
+        self.masking_length = len(self.masking_indices)
+        self.policy_masking_indices = policy_masking_indices
+        self.drop_out_rate = drop_out_rate
+        self.device = device
+
+        '''Define model'''
+        # embedding has tanh as an activation function while encoder and decoder have ReLU
+        self.pre_embed = MLP(
+            input_dim=state_dim,
+            hidden_dims=(64, 64),
+            output_dim=state_dim,
+            activation=nn.Tanh,
+            #dropout_rate=0.9,
+            device=device
+        )
+
+        self.encoder = MLP(
+            input_dim=state_dim+latent_dim,
+            hidden_dims=(128, 128, 64, 32),
+            #activation=nn.Tanh,
+            #output_dim=latent_dim,
+            #dropout_rate=0.9,
+            device=device
+        )
+
+        self.mu_network = nn.Linear(32, latent_dim).to(device)
+        self.logstd_network = nn.Linear(32, latent_dim).to(device)
+
+        self.decoder = MLP(
+            input_dim=latent_dim + state_dim - self.masking_length,
+            hidden_dims=(32, 64, 128, 128),
+            output_dim=state_dim,
+            dropout_rate=self.drop_out_rate,
+            device=device
+        )
+
+        self.post_embed = MLP(
+            input_dim=state_dim,
+            hidden_dims=(64, 64),
+            output_dim=state_dim,
+            activation=nn.Tanh,
+            dropout_rate=self.drop_out_rate,
+            device=device
+        )
+
+        self.to(device=self.device)
+
+    def change_device_info(self, device):
+        self.pre_embed.device = device
+        self.post_embed.device = device
+        self.mu_network.device = device
+        self.logstd_network.device = device
+        self.encoder.device = device
+        self.decoder.device = device
+        self.device = device
+
+    def forward(
+        self,
+        states: torch.Tensor,
+        y: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+
+        # embedding network
+        states = torch.as_tensor(states, device=self.device, dtype=torch.float32)
+        ego_states = self.torch_delete(states, self.policy_masking_indices, axis=-1)
+        states = self.pre_embed(states)
+
+        y = torch.as_tensor(y, device=self.device, dtype=torch.float32)
+
+        input = torch.concatenate((states, y), axis=-1)
+
+        # encoder
+        logits = self.encoder(input)
+
+        z_mu = self.mu_network(logits)
+        z_std = self.logstd_network(logits)
+
+        z_mu = F.tanh(torch.clamp(z_mu, -7.24, 7.24)) # tanh to match to N(0, I) of prior distribution
+        z_std = torch.exp(torch.clamp(z_std, -5, 2)) # clamping b/w -5 and 2
+
+        dist = torch.distributions.multivariate_normal.MultivariateNormal(z_mu, torch.diag_embed(z_std))
+        z = dist.rsample()
+
+        return ego_states, z, z_mu, z_std
+
+    def decode(self, states: torch.Tensor,  next_states: torch.Tensor, z: Optional[torch.Tensor], z_mu: torch.Tensor, z_std: torch.Tensor) -> torch.Tensor:
+        ego_states = self.torch_delete(states, self.masking_indices, axis=-1)
+        input = torch.concatenate((ego_states, z), axis=-1)
+
+        next_state_logits = self.decoder(input)
+        next_state_pred = self.post_embed(next_state_logits)
+        
+        #state_pred_loss = F.mse_loss(next_state_logits, next_states)
+        state_pred_loss = F.mse_loss(next_state_pred, next_states)
+        kl_loss = -0.5 * torch.sum(1 + torch.log(z_std.pow(2)) - z_mu.pow(2) - z_std.pow(2))
+        
+        ELBO_loss = state_pred_loss + kl_loss
+        '''
+        var = var + 1e-8
+        return -0.5 * torch.sum(
+            np.log(2.0 * np.pi) + torch.log(z_std.pow(2)) + torch.pow(x - mu, 2) / z_std.pow(2), dim=-1)
+        '''
+
+        return (ELBO_loss, state_pred_loss, kl_loss)
+
+    def torch_delete(self, tensor, indices, axis=None):
+        tensor = tensor.cpu().numpy()
+        tensor = np.delete(tensor, indices, axis=axis)
+        tensor = torch.tensor(tensor).to(self.device)
+        return tensor
+
+# MetaWorld Gaussian Mixture Variational Auto-Encoder 
+class HLmodel(nn.Module):
+    def __init__(
+        self,
+        state_dim: int,
+        action_dim:int,
+        latent_dim: int,
+        occ_loss_type: str = 'exp',
+        drop_out_rate: float = 0.7,
+        device = torch.device("cpu")
+    ) -> None:
+        super(HLmodel, self).__init__()
+        '''parameter save to the class'''
+        self.state_dim = state_dim
+        self.action_dim = action_dim
+        self.latent_dim = latent_dim
+        self.occ_loss_type = occ_loss_type
+        self.drop_out_rate = drop_out_rate
+        self.device = device
+
+        feature_dim = state_dim+action_dim+state_dim+1
+
+        '''Pre-embedding'''
+        self.state_embed = MLP(
+            input_dim=state_dim,
+            hidden_dims=(64, 64),
+            output_dim=state_dim,
+            initialization=True,
+            activation=nn.Tanh,
+            #dropout_rate=0.9,
+            device=device
+        )
+        self.action_embed = MLP(
+            input_dim=action_dim,
+            hidden_dims=(32, 32),
+            output_dim=action_dim,
+            initialization=True,
+            activation=nn.Tanh,
+            #dropout_rate=0.9,
+            device=device
+        )
+        self.reward_embed = MLP(
+            input_dim=1,
+            hidden_dims=(16, 16),
+            output_dim=1,
+            initialization=True,
+            activation=nn.Tanh,
+            #dropout_rate=0.9,
+            device=device
+        )
+
+        '''Encoder definitions'''
+        self.encoder = RecurrentEncoder(
+            input_size=feature_dim,
+            hidden_size=feature_dim,
+            device=device
+        )
+        # cat(h) -> y -> en(h, y) 
+        self.cat_layer = MLP(
+            input_dim=feature_dim,
+            hidden_dims=(512, 512), # hidden includes the relu activation
+            dropout_rate=self.drop_out_rate,
+            device=device
+        )
+
+        self.Gumbel_layer = GumbelSoftmax(512, 
+                                          self.latent_dim, 
+                                          device)
+
+        self.to(device=self.device)
+
+    def change_device_info(self, device):
+        self.state_embed.device = device
+        self.action_embed.device = device
+        self.reward_embed.device = device
+        self.encoder.device = device
+        self.cat_layer.device = device
+        self.Gumbel_layer.device = device
+        self.device = device
+
+    def pack4rnn(self, input_tuple, is_batch):
+        '''
+        Input: tuple of s, a, ns, r, m
+        Return: padded_data (batch, seq, fea) and legnths for each trj
+        =============================================
+        1. find the maximum length of the given traj
+        2. create a initialized batch with that max traj length
+        3. put the values in
+        4. return the padded data and its corresponding length for later usage.
+        '''
+        obss, actions, next_obss, rewards, masks = input_tuple
+        if is_batch:
+            trajs = []
+            lengths = []
+            prev_i = 0
+            for i, mask in enumerate(masks):
+                if mask == 0:
+                    trajs.append(torch.concatenate((obss[prev_i:i+1, :], actions[prev_i:i+1, :], next_obss[prev_i:i+1, :], rewards[prev_i:i+1, :]), axis=-1))
+                    lengths.append(i+1 - prev_i)
+                    prev_i = i + 1    
+            
+            # pad the data
+            largest_length = max(lengths)
+            data_dim = trajs[0].shape[-1]
+            padded_data = torch.zeros((len(lengths), largest_length, data_dim))
+
+            for i, traj in enumerate(trajs):
+                padded_data[i, :lengths[i], :] = traj
+            
+            return (padded_data, lengths)
+        else:
+            states, actions, next_states, rewards, masks = input_tuple
+            mdp = torch.concatenate((states, actions, next_states, rewards), axis=-1)
+            # convert to 3d aray for rnn
+            mdp = mdp[None, None, :]
+            return (mdp, None)
+    
+    def entropy(self, logits, targets):
+        """Entropy loss
+            loss = (1/n) * -Σ targets*log(predicted)
+        Args:
+            logits: (array) corresponding array containing the logits of the categorical variable
+            real: (array) corresponding array containing the true labels
+
+        Returns:
+            output: (array/float) depending on average parameters the result will be the mean
+                                  of all the sample losses or an array with the losses per sample
+        """
+        log_q = F.log_softmax(logits, dim=-1)
+        return -torch.mean(torch.sum(targets * log_q, dim=-1))
+    
+    def occupancy_loss(self, y):
+        """occupancy loss to suppress usage of larger subtask index
+            loss = logK * (1/f(K)) * -Σ (1,...,f(K)) dot y for linear
+        Args:
+            y: sampled subtask composition
+        args.type: How f(K) is defined, linear square, or exponential
+        maximum is set as log(K) to match magnitude of the entropy loss
+        """
+        if self.occ_loss_type == 'linear':
+            occ_coeff = np.log(self.latent_dim) * torch.arange(1.0,self.latent_dim+1)/self.latent_dim
+        elif self.occ_loss_type == 'log':
+            occ_coeff = torch.log(torch.arange(1.0,self.latent_dim+1))
+        elif self.occ_loss_type == 'exp':
+            occ_coeff = np.log(self.latent_dim) * torch.exp(torch.arange(1.0,self.latent_dim+1))/np.exp(self.latent_dim)
+        elif self.occ_loss_type == 'none':
+            return torch.tensor(0.0)
+
+        occ_loss = occ_coeff.to(self.device) * y
+
+        return torch.mean(torch.sum(occ_loss, dim=-1))
+    
+    def forward(
+        self,
+        input_tuple: tuple,
+        is_batch: bool = False,
+    ) -> Tuple[torch.Tensor]:
+        states, actions, next_states, rewards, masks = input_tuple
+
+        # conversion
+        states = torch.as_tensor(states, device=self.device, dtype=torch.float32)
+        actions = torch.as_tensor(actions, device=self.device, dtype=torch.float32)
+        next_states = torch.as_tensor(next_states, device=self.device, dtype=torch.float32)
+        rewards = torch.as_tensor(rewards, device=self.device, dtype=torch.float32)
+        masks = torch.as_tensor(masks, device=self.device, dtype=torch.int32)
+
+        #print(states.shape, actions.shape, next_states.shape, rewards.shape, masks.shape)
+        '''Embedding'''
+        states = self.state_embed(states)
+        actions = self.action_embed(actions)
+        next_states = self.state_embed(next_states)
+        rewards = self.reward_embed(rewards)
+
+        input_tuple = (states, actions, next_states, rewards, masks)        
+
+        mdp_and_lengths = self.pack4rnn(input_tuple, is_batch)
+        out = self.encoder(mdp_and_lengths, is_batch)
+
+        # categorical
+        out = self.cat_layer(out)
+        logits, prob, y = self.Gumbel_layer(out)
+        loss_cat = -self.entropy(logits, prob) - np.log(1.0/self.latent_dim) #uniform entropy
+        loss_occ = self.occupancy_loss(y)
+
+        return states, y, loss_cat, loss_occ # this pair directly goes to IL
+    
