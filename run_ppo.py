@@ -40,7 +40,7 @@ def get_args():
 
     '''Algorithmic and sampling parameters'''
     parser.add_argument('--seeds', default=[1, 3, 5, 7, 9], type=list)
-    parser.add_argument('--num-cores', type=int, default=20)
+    parser.add_argument('--num-cores', type=int, default=None)
     parser.add_argument('--actor-hidden-dims', default=(256, 256))
     parser.add_argument('--hidden-dims', default=(256, 256))
     parser.add_argument("--K-epochs", type=int, default=5)

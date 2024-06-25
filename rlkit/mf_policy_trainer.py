@@ -181,28 +181,37 @@ class MFPolicyTrainer:
         eval_dict = {}
         envs_list = self.training_envs + self.testing_envs
 
-        queue = multiprocessing.Manager().Queue()
-        processes = []
-        
-        for i, env in enumerate(envs_list):
-            if i == len(envs_list) - 1:
-                '''Main thread process'''
+        if self.rendering:
+            '''
+            Using Multiprocessing during rendering crashes the program, so we iterate all envs one by one
+            '''
+            for env in envs_list:
                 task_dict, rew_mean, suc_mean, f_suc_mean = self.eval_loop(env, queue=None)
                 eval_dict.update(task_dict)
                 rew_sum += rew_mean; suc_sum += suc_mean; f_suc_sum += f_suc_mean
-            else:
-                '''Sub-thread process'''
-                p = multiprocessing.Process(target=self.eval_loop, args=(env, queue))
-                processes.append(p)
-                p.start()
+        else:
+            queue = multiprocessing.Manager().Queue()
+            processes = []
+            
+            for i, env in enumerate(envs_list):
+                if i == len(envs_list) - 1:
+                    '''Main thread process'''
+                    task_dict, rew_mean, suc_mean, f_suc_mean = self.eval_loop(env, queue=None)
+                    eval_dict.update(task_dict)
+                    rew_sum += rew_mean; suc_sum += suc_mean; f_suc_sum += f_suc_mean
+                else:
+                    '''Sub-thread process'''
+                    p = multiprocessing.Process(target=self.eval_loop, args=(env, queue))
+                    processes.append(p)
+                    p.start()
 
-        for p in processes:
-            p.join() 
-        
-        for _ in range(i): 
-            task_dict, rew_mean, suc_mean, f_suc_mean = queue.get()
-            eval_dict.update(task_dict)
-            rew_sum += rew_mean; suc_sum += suc_mean; f_suc_sum += f_suc_mean
+            for p in processes:
+                p.join() 
+            
+            for _ in range(i): 
+                task_dict, rew_mean, suc_mean, f_suc_mean = queue.get()
+                eval_dict.update(task_dict)
+                rew_sum += rew_mean; suc_sum += suc_mean; f_suc_sum += f_suc_mean
 
         # eval logging
         self.logger.store(**eval_dict)        
@@ -279,13 +288,6 @@ class MFPolicyTrainer:
             "eval_success_std/" + env.task_name: np.std(task_success_list),
             "eval_final_success_std/" + env.task_name: np.std(task_final_success_list),
         }
-
-        if np.mean(task_reward_list) >= 5000:
-            print('warnming')
-            print(np.mean(task_reward_list))
-            print(task_reward_list)
-            print(task_eval_dict)
-            print(task_success_list)
 
         if queue is not None:
             queue.put([task_eval_dict, np.mean(task_reward_list), np.mean(task_success_list), np.mean(task_final_success_list)])
