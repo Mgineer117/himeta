@@ -136,7 +136,7 @@ class OnlineSampler:
         ep_num = 0
         while current_step < thread_batch_size:
             # For each episode, apply different seed for stochasticity
-            seed = random.randint(0, 1_000_000)
+            seed = random.randint(100, 1_000_000)
             torch.manual_seed(seed)
 
             # break criteria

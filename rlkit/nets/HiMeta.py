@@ -233,6 +233,8 @@ class HiMeta(nn.Module):
                 r_pred = self.LLmodel.critic(y_embedded_states) # y embedding b/c it is sub-task info while z is action-task info; this is not action-value fn
                 _, traj_returns = estimate_advantages(rewards, masks, r_pred, self.gamma, self.tau, self.device)
                 value_loss = self.loss_fn(r_pred, returns)
+                loss_cat = loss_cat * value_loss.detach() # to scale
+                loss_occ = loss_occ * value_loss.detach() # to scale
 
                 '''COMPUTE THE VAE (INTERMEDIATE LEVEL) LOSS'''
                 (decoder_loss, state_pred_loss, kl_loss) = self.ILmodel.decode(states, next_states, z, z_mu, z_std)
