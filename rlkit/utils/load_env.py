@@ -262,12 +262,15 @@ def load_gym_env(key, reward_fn=None, cost_fn=None, render_mode: str = 'rgb_arra
     
     return training_envs, testing_envs, None
 
-def load_metagym_env(key, task: str = None, task_num: int = None, render_mode: str = 'rgb_array'):
+def load_metagym_env(args, render_mode: str = 'rgb_array'):
+    key = args.task
+    task = args.task_name
+    task_num = args.task_num
+
     if task is not None:
         task_name = '-'.join((task, 'v2'))
 
     if key == 'MetaGym-ML1':
-        assert task is not None
         assert task_num is not None
         ml = metaworld.ML1(task_name)
         training_envs = []
@@ -286,10 +289,8 @@ def load_metagym_env(key, task: str = None, task_num: int = None, render_mode: s
             env.set_task(task)
             env.task_name = task.env_name[:-3]
             testing_envs.append(env)
-        eval_env_idx = random.choice(range(len(testing_envs)))
-        testing_envs = testing_envs[eval_env_idx]
+
     elif key == 'MetaGym-MT1':
-        assert task is not None
         assert task_num is not None
         ml = metaworld.MT1(task_name)
         tasks = random.sample(ml.train_tasks, task_num)
@@ -299,8 +300,8 @@ def load_metagym_env(key, task: str = None, task_num: int = None, render_mode: s
             env.set_task(task)
             env.task_name = task.env_name[:-3]
             training_envs.append(env)
-        eval_env_idx = random.choice(range(len(training_envs)))
-        testing_envs = training_envs[eval_env_idx]
+        testing_envs = []
+
     elif key == 'MetaGym-ML10':
         ml = metaworld.ML10()
         training_envs = []
@@ -323,9 +324,14 @@ def load_metagym_env(key, task: str = None, task_num: int = None, render_mode: s
             env.task_name = task.env_name[:-3]
             testing_envs.append(env)
             testing_tasks.append(task.env_name[:-3])
+        
+        args.training_tasks = training_tasks
+        args.testing_tasks = testing_tasks
+
     elif key == 'MetaGym-MT10':
         ml = metaworld.MT10()
         training_envs = []
+        training_tasks = []
         for name, env_cls in ml.train_classes.items():
             env = env_cls(render_mode=render_mode)
             task = random.choice([task for task in ml.train_tasks
@@ -333,7 +339,10 @@ def load_metagym_env(key, task: str = None, task_num: int = None, render_mode: s
             env.set_task(task)
             env.task_name = task.env_name[:-3]
             training_envs.append(env)
-        eval_env_idx = random.choice(range(len(training_envs)))
-        testing_envs = training_envs[eval_env_idx]
-
-    return training_envs, testing_envs, training_tasks, testing_tasks
+            training_tasks.append(task.env_name[:-3])
+        testing_envs = []
+        
+        args.training_tasks = training_tasks
+        args.testing_tasks = testing_tasks
+        
+    return training_envs, testing_envs

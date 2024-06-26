@@ -61,8 +61,10 @@ class LLmodel(nn.Module):
             state_dim: int,
             action_dim: int,
             latent_dim: int,
-            policy_masking_indices: List,
+            policy_masking_indices: List = [],
             max_action: int = 1.0,
+            sigma_min: float = -5.0,
+            sigma_max: float = 2.0,
             device = torch.device("cpu")
             ):
         super(LLmodel, self).__init__() #- len(masking_indices)
@@ -77,8 +79,8 @@ class LLmodel(nn.Module):
             unbounded=False,
             conditioned_sigma=True,
             max_mu=max_action,
-            sigma_min=-0.5,
-            sigma_max=0.5
+            sigma_min=sigma_min,
+            sigma_max=sigma_max
         )
 
         actor = ActorProb(actor_backbone,
@@ -127,8 +129,11 @@ class ILmodel(nn.Module):
         state_dim: int,
         action_dim: int,
         latent_dim: int,
-        masking_indices: List,
-        policy_masking_indices: List,
+        state_embed_hidden_dims: tuple = (64, 64),
+        encoder_hidden_dims: tuple = (128, 64, 32),
+        decoder_hidden_dims: tuple = (32, 64, 128),
+        masking_indices: List = [],
+        policy_masking_indices: List = [],
         drop_out_rate: float = 0.7,
         device = torch.device("cpu")
     ) -> None:
@@ -147,39 +152,36 @@ class ILmodel(nn.Module):
         # embedding has tanh as an activation function while encoder and decoder have ReLU
         self.pre_embed = MLP(
             input_dim=state_dim,
-            hidden_dims=(64, 64),
+            hidden_dims=state_embed_hidden_dims,
             output_dim=state_dim,
             activation=nn.Tanh,
-            #dropout_rate=0.9,
             device=device
         )
 
         self.encoder = MLP(
             input_dim=state_dim+latent_dim,
-            hidden_dims=(128, 128, 64, 32),
-            #activation=nn.Tanh,
-            #output_dim=latent_dim,
-            #dropout_rate=0.9,
+            hidden_dims=encoder_hidden_dims,
+            activation=nn.LeakyReLU,
             device=device
         )
 
-        self.mu_network = nn.Linear(32, latent_dim).to(device)
-        self.logstd_network = nn.Linear(32, latent_dim).to(device)
+        self.mu_network = nn.Linear(encoder_hidden_dims[-1], latent_dim).to(device)
+        self.logstd_network = nn.Linear(encoder_hidden_dims[-1], latent_dim).to(device)
 
         self.decoder = MLP(
             input_dim=latent_dim + state_dim - self.masking_length,
-            hidden_dims=(32, 64, 128, 128),
+            hidden_dims=decoder_hidden_dims,
             output_dim=state_dim,
+            activation=nn.LeakyReLU,
             dropout_rate=self.drop_out_rate,
             device=device
         )
 
         self.post_embed = MLP(
             input_dim=state_dim,
-            hidden_dims=(64, 64),
+            hidden_dims=state_embed_hidden_dims,
             output_dim=state_dim,
             activation=nn.Tanh,
-            dropout_rate=self.drop_out_rate,
             device=device
         )
 
@@ -256,6 +258,11 @@ class HLmodel(nn.Module):
         state_dim: int,
         action_dim:int,
         latent_dim: int,
+        categorical_hidden_dims: tuple = (512, 512),
+        LSTM_hidden_size: int = 256,
+        state_embed_hidden_dims: tuple = (64, 64),
+        action_embed_hidden_dims: tuple = (64, 64),
+        reward_embed_hidden_dims: tuple = (64, 64),
         occ_loss_type: str = 'exp',
         drop_out_rate: float = 0.7,
         device = torch.device("cpu")
@@ -274,7 +281,7 @@ class HLmodel(nn.Module):
         '''Pre-embedding'''
         self.state_embed = MLP(
             input_dim=state_dim,
-            hidden_dims=(64, 64),
+            hidden_dims=state_embed_hidden_dims,
             output_dim=state_dim,
             initialization=True,
             activation=nn.Tanh,
@@ -283,7 +290,7 @@ class HLmodel(nn.Module):
         )
         self.action_embed = MLP(
             input_dim=action_dim,
-            hidden_dims=(32, 32),
+            hidden_dims=action_embed_hidden_dims,
             output_dim=action_dim,
             initialization=True,
             activation=nn.Tanh,
@@ -292,7 +299,7 @@ class HLmodel(nn.Module):
         )
         self.reward_embed = MLP(
             input_dim=1,
-            hidden_dims=(16, 16),
+            hidden_dims=reward_embed_hidden_dims,
             output_dim=1,
             initialization=True,
             activation=nn.Tanh,
@@ -303,18 +310,18 @@ class HLmodel(nn.Module):
         '''Encoder definitions'''
         self.encoder = RecurrentEncoder(
             input_size=feature_dim,
-            hidden_size=feature_dim,
+            hidden_size=LSTM_hidden_size,
             device=device
         )
         # cat(h) -> y -> en(h, y) 
         self.cat_layer = MLP(
-            input_dim=feature_dim,
-            hidden_dims=(512, 512), # hidden includes the relu activation
+            input_dim=LSTM_hidden_size,
+            hidden_dims=categorical_hidden_dims, # hidden includes the relu activation
             dropout_rate=self.drop_out_rate,
             device=device
         )
 
-        self.Gumbel_layer = GumbelSoftmax(512, 
+        self.Gumbel_layer = GumbelSoftmax(categorical_hidden_dims[-1], 
                                           self.latent_dim, 
                                           device)
 

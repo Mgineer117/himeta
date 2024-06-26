@@ -8,7 +8,7 @@ import torch
 import numpy as np
 import cv2
 
-from rlkit.utils.utils import visualize_latent_variable
+from rlkit.utils.torch import visualize_latent_variable
 from typing import Optional, Union, Tuple, Dict
 from datetime import date
 today = date.today()

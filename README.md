@@ -1,4 +1,4 @@
-# RL Implementation by Minjae (for my use and it is on development)
+# Hierarchical Meta-Reinforcement Learning
 
 Welcome to Minjae's RL Implementation repository! This project is a sophisticated reinforcement learning (RL) engine that uniquely combines both offline and online RL capabilities, setting it apart from other implementations that treat them separately.
 

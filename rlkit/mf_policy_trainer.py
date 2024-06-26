@@ -64,16 +64,13 @@ class MFPolicyTrainer:
         init_epoch: int = 0,
         step_per_epoch: int = 1000,
         init_step_per_epoch: int = 0,
-        local_steps: int = 3,
-        batch_size: int = 256,
-        num_trj: int = 0,
         eval_episodes: int = 10,
         rendering: bool = False,
         lr_scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
         obs_dim: int = None,
         action_dim: int = None,
         embed_dim: int = None,
-        log_interval: int = 20,
+        log_interval: int = 2,
         visualize_latent_space:bool = False,
         seed: int = 0,
         device=torch.device('cpu')
@@ -85,23 +82,24 @@ class MFPolicyTrainer:
         self.logger = logger
         self.writer = writer
 
+        # training parameters
         self._epoch = epoch
-        self._init_epoch = init_epoch
         self._step_per_epoch = step_per_epoch
+        self._init_epoch = init_epoch
         self._init_step_per_epoch = init_step_per_epoch
-        self._local_steps = local_steps
-        self._batch_size = batch_size
-        self._num_trj = num_trj
         self._eval_episodes = eval_episodes
         self.lr_scheduler = lr_scheduler
 
+        # dimensional parameters
         self.obs_dim = obs_dim
         self.action_dim = action_dim        
         self.embed_dim = embed_dim
         
+        # initialize the essential training components
         self.last_max_reward = 0.0
         self.last_max_success = 0.0
 
+        # logging parameters
         self.current_epoch = 0
         self.log_interval = log_interval
         self.rendering = rendering
@@ -123,18 +121,18 @@ class MFPolicyTrainer:
         last_3_success_performance = deque(maxlen=3)
         last_3_final_success_performance = deque(maxlen=3)
         # train loop
-        for e in trange(self._init_epoch, self._epoch, desc=f"Epoch"):
+        for e in trange(self._init_epoch+1, self._epoch+1, desc=f"Epoch"):
             self.current_epoch = e
             self.recorded_frames = []
 
-            for it in trange(self._init_step_per_epoch, self._step_per_epoch, desc=f"Training", leave=False):
-                if e == 0 and it == 0:
-                    # first iter evaluate
-                    rew_sum, suc_sum, f_suc_sum = self._evaluate(e, it)
-                    last_3_reward_performance.append(rew_sum)
-                    last_3_success_performance.append(suc_sum)
-                    last_3_final_success_performance.append(f_suc_sum)
+            if e == 1:
+                # first iter evaluate so it's e = 0
+                rew_sum, suc_sum, f_suc_sum = self._evaluate(e=0, it=0)
+                last_3_reward_performance.append(rew_sum)
+                last_3_success_performance.append(suc_sum)
+                last_3_final_success_performance.append(f_suc_sum)
 
+            for it in trange(self._init_step_per_epoch, self._step_per_epoch, desc=f"Training", leave=False):
                 if self.visualize_latent_space and self.embed_dim > 0:
                     self.init_latent_path(e, it)
                     self.init_render_path(e, it)
@@ -225,19 +223,21 @@ class MFPolicyTrainer:
         return rew_sum, suc_sum, f_suc_sum
     
     def eval_loop(self, env, queue=None) -> Dict[str, List[float]]:
-        num_episodes = 0
         eval_ep_info_buffer = []
-        while num_episodes < self._eval_episodes:
-            # initialization
+        for num_episodes in range(self._eval_episodes):
+            # logging initialization
             max_success = 0.0
+            self.recorded_frames = []
+            episode_reward, episode_length, episode_success, episode_final_success = 0, 0, 0, 0
+            render_criteria = self.current_epoch % self.log_interval == 0 and self.rendering and num_episodes == 0
+
+            # env initialization
             s, _ = env.reset(seed=self.seed + num_episodes)
             a = np.zeros((self.action_dim, ))
             ns = s 
             done = False
             input_tuple = (s, a, ns, np.array([0]), np.array([1]))
-            episode_reward, episode_length, episode_success, episode_final_success = 0, 0, 0, 0
-            self.recorded_frames = []
-
+            
             self.policy.init_encoder_hidden_info()                
             while not done:
                 with torch.no_grad():
@@ -246,11 +246,7 @@ class MFPolicyTrainer:
                 ns, rew, trunc, term, infos = env.step(a.flatten()); success = infos['success']
                 done = term or trunc; mask = 0 if done else 1
                 max_success = np.maximum(max_success, success)
-                
-                if self.current_epoch % self.log_interval == 0:
-                    if self.rendering and num_episodes == 0:
-                        self.recorded_frames.append(env.render())
-                
+
                 episode_reward += rew
                 episode_success += success
                 episode_final_success += max_success
@@ -258,27 +254,34 @@ class MFPolicyTrainer:
                 
                 # state encoding
                 input_tuple = (s, a, ns, np.array([rew]), np.array([mask]))
-                
                 s = ns
 
+                # render for the video
+                if render_criteria:
+                    self.recorded_frames.append(env.render())
+
                 if done:
-                    if self.current_epoch % self.log_interval == 0:
-                        if self.rendering and num_episodes == 0:
-                            path = os.path.join(self.logger.checkpoint_dir, 'videos', env.task_name)
-                            self.save_rendering(path)
+                    if render_criteria:
+                        path = os.path.join(self.logger.checkpoint_dir, 'videos', env.task_name)
+                        self.save_rendering(path)
 
                     eval_ep_info_buffer.append(
-                        {env.task_name + "_reward": episode_reward, 
-                         env.task_name + "_success":episode_success/episode_length,
-                         env.task_name + "_final_success":episode_final_success/episode_length,
+                        {"reward": episode_reward, 
+                         "success":episode_success/episode_length,
+                         "final_success":episode_final_success/episode_length,
                         }
                     )
-                    num_episodes +=1
-                    episode_reward, episode_length, episode_success, episode_final_success = 0, 0, 0, 0
+                    break
 
-        task_reward_list = [ep_info[env.task_name + "_reward"] for ep_info in eval_ep_info_buffer]
-        task_success_list = [ep_info[env.task_name + "_success"] for ep_info in eval_ep_info_buffer]
-        task_final_success_list = [ep_info[env.task_name + "_final_success"] for ep_info in eval_ep_info_buffer]
+        task_reward_list = [ep_info["reward"] for ep_info in eval_ep_info_buffer]
+        task_success_list = [ep_info["success"] for ep_info in eval_ep_info_buffer]
+        task_final_success_list = [ep_info["final_success"] for ep_info in eval_ep_info_buffer]
+
+        if np.mean(task_reward_list) >= 5000:
+            print(task_reward_list)
+            print(task_success_list)
+            print(task_final_success_list)
+            print(eval_ep_info_buffer)
 
         task_eval_dict = {
             "eval_reward_mean/" + env.task_name: np.mean(task_reward_list),
