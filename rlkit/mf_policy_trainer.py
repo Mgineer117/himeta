@@ -125,7 +125,7 @@ class MFPolicyTrainer:
         self.policy.eval() # policy only has to be train_mode in policy_learn, since sampling needs eval_mode as well.
         for e in trange(self._init_epoch, self._epoch, desc=f"Epoch"):
             self.recorded_frames = []
-            if e == 10:
+            if e == 0:
                 # first iter evaluate so it's e = 0
                 rew_sum, suc_sum, f_suc_sum = self._evaluate(e=0)
                 last_3_reward_performance.append(rew_sum)

@@ -27,9 +27,9 @@ def get_args():
     parser.add_argument('--decoder-hidden-dims', type=tuple, default=(32, 64, 128, 128))
     parser.add_argument('--categorical-hidden-dims', type=tuple, default=(512, 512))
     parser.add_argument('--LSTM-hidden-size', type=int, default=256)
-    parser.add_argument('--state-embed-hidden-dims', type=tuple, default=(64,), help='')
-    parser.add_argument('--action-embed-hidden-dims', type=tuple, default=(32,))
-    parser.add_argument('--reward-embed-hidden-dims', type=tuple, default=(16,))
+    parser.add_argument('--state-embed-hidden-dims', type=tuple, default=(64, 64), help='')
+    parser.add_argument('--action-embed-hidden-dims', type=tuple, default=(32, 32))
+    parser.add_argument('--reward-embed-hidden-dims', type=tuple, default=(16, 16))
 
     # Learning rates
     parser.add_argument("--actor-lr", type=float, default=7e-4)
@@ -50,7 +50,7 @@ def get_args():
     parser.add_argument("--occ-loss-type", type=str, default='exp') # exp, log, linear, none
     parser.add_argument("--embed-dim", type=int, default=5)
     parser.add_argument("--mask-type", type=str, default='ego') # ego or other or none # this is for skill embedding
-    parser.add_argument("--policy-mask-type", type=str, default='ego') # ego or other or none # this is for skill embedding
+    parser.add_argument("--policy-mask-type", type=str, default='none') # ego or other or none # this is for skill embedding
 
     '''Sampling parameters'''
     parser.add_argument('--epoch', type=int, default=50)
