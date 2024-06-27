@@ -219,8 +219,8 @@ class OnlineSampler:
                 memory[k] = memory[k][:thread_batch_size]
         
         # for logging task-wise performance
-        task_dict = {'train/'+env.task_name + '_reward': np.sum(memory['rewards']) / len((np.where(memory['masks'] == 0))[0]),
-                     'train/'+env.task_name + '_success': np.sum(memory['successes']) / len((np.where(memory['masks'] == 0))[0])}
+        task_dict = {'train_reward/'+env.task_name + '_reward': np.sum(memory['rewards']) / len((np.where(memory['masks'] == 0))[0]),
+                     'train_success/'+env.task_name + '_success': np.sum(memory['successes']) / len((np.where(memory['masks'] == 0))[0])}
                                                                            
         if queue is not None:
             queue.put([pid, memory, task_dict])
@@ -240,8 +240,8 @@ class OnlineSampler:
         worker_idx = 0
 
         task_dict_list = [None] * self.total_num_worker
-        reward_dict = {'train/' + key + '_reward': 0 for key in self.task_names}
-        success_dict = {'train/' + key + '_success': 0 for key in self.task_names}
+        reward_dict = {'train_reward/' + key + '_reward': 0 for key in self.task_names}
+        success_dict = {'train_mean/' + key + '_success': 0 for key in self.task_names}
         rs_dict = {**reward_dict, **success_dict}
 
         for round_number in range(self.rounds):

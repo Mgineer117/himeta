@@ -286,8 +286,8 @@ class HiMeta(nn.Module):
             'loss/decoder_kl_loss': kl_loss.item(),
             'loss/occupancy_loss': loss_occ.item(),
             'loss/cat_ent_loss': loss_cat.item(),
-            'train/episodic_reward': episodic_reward,
-            'train/success': successes.mean().item(),
+            'main_chart/episodic_reward': episodic_reward,
+            'main_chart/success': successes.mean().item(),
         }
 
         grad_norm = self.average_dict(grad_norm_list)

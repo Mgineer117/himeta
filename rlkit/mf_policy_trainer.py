@@ -132,9 +132,9 @@ class MFPolicyTrainer:
                 
                 # Logging further info
                 loss = {**loss, **rs_dict}
-                loss['train/num_env_steps'] = self.num_env_steps
-                loss['time/sample_time'] = sample_time
-                loss['time/update_time'] = update_time
+                loss['main_chart/num_env_steps'] = self.num_env_steps
+                loss['main_chart/sample_time'] = sample_time
+                loss['main_chart/update_time'] = update_time
 
                 # Logging to WandB and Tensorboard
                 self.logger.store(**loss)
