@@ -8,7 +8,7 @@ import torch
 import numpy as np
 import cv2
 
-from rlkit.utils.torch import visualize_latent_variable
+from rlkit.utils.functions import visualize_latent_variable
 from typing import Optional, Union, Tuple, Dict
 from datetime import date
 today = date.today()
@@ -264,6 +264,8 @@ class OnlineSampler:
             pid, worker_memory = queue.get()
             worker_memories[pid] = worker_memory
         
+        t_end = time.time()
+        
         if latent_path is not None:
             '''draw latent variable !!!'''
             y_info = [worker_memories[i]['ys'] for i in range(self.num_worker_per_env-1, len(worker_memories), self.num_worker_per_env)]
@@ -286,6 +288,5 @@ class OnlineSampler:
                 memory[k] = np.concatenate((memory[k], worker_memory[k]), axis=0)
 
         policy.to_device(self.device)
-        t_end = time.time()
 
         return memory, t_end - t_start

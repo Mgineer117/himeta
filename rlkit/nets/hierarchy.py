@@ -283,7 +283,6 @@ class HLmodel(nn.Module):
             input_dim=state_dim,
             hidden_dims=state_embed_hidden_dims,
             output_dim=state_dim,
-            initialization=True,
             activation=nn.Tanh,
             #dropout_rate=0.9,
             device=device
@@ -292,7 +291,6 @@ class HLmodel(nn.Module):
             input_dim=action_dim,
             hidden_dims=action_embed_hidden_dims,
             output_dim=action_dim,
-            initialization=True,
             activation=nn.Tanh,
             #dropout_rate=0.9,
             device=device
@@ -301,7 +299,6 @@ class HLmodel(nn.Module):
             input_dim=1,
             hidden_dims=reward_embed_hidden_dims,
             output_dim=1,
-            initialization=True,
             activation=nn.Tanh,
             #dropout_rate=0.9,
             device=device
@@ -317,6 +314,7 @@ class HLmodel(nn.Module):
         self.cat_layer = MLP(
             input_dim=LSTM_hidden_size,
             hidden_dims=categorical_hidden_dims, # hidden includes the relu activation
+            activation=nn.LeakyReLU,
             dropout_rate=self.drop_out_rate,
             device=device
         )

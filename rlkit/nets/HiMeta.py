@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import time
 import pickle
 import torch
 import torch.nn as nn
@@ -41,7 +42,7 @@ class HiMeta(nn.Module):
                         {'params': self.LLmodel.actor.parameters(), 'lr': actor_lr},
                         {'params': self.LLmodel.critic.parameters(), 'lr': critic_lr}]
 
-        self.optimizers = torch.optim.AdamW(optim_params)
+        self.optimizers = torch.optim.Adam(optim_params)
 
         self.tau = tau
         self.gamma = gamma
@@ -53,7 +54,6 @@ class HiMeta(nn.Module):
         self.state_scaler= state_scaler
         self.reward_scaler = reward_scaler
 
-        self.num_env_interactions = 0
         self.device = device
 
     def train(self) -> None:
@@ -202,21 +202,30 @@ class HiMeta(nn.Module):
     
     def learn(self, batch):
         from rlkit.utils.torch import estimate_advantages, estimate_episodic_value
+        self.train()
+        t_start = time.time()
 
-        # CALL DATA FOR ACTOR UPDATE
-        states = torch.from_numpy(batch['states']).to(self.device)
-        actions = torch.from_numpy(batch['actions']).to(self.device)
-        next_states = torch.from_numpy(batch['next_states']).to(self.device)
-        rewards = torch.from_numpy(batch['rewards']).to(self.device)
-        masks = torch.from_numpy(batch['masks']).to(self.device)
-        logprobs = torch.from_numpy(batch['logprobs']).to(self.device)
-        successes = torch.from_numpy(batch['successes']).to(self.device)
+        # CALL DATA AND PREPROCESS
+        states = batch['states']
+        actions = batch['actions']
+        next_states = batch['next_states']
+        rewards = batch['rewards']
+        masks = batch['masks']
+        logprobs = batch['logprobs']
+        successes = batch['successes']
 
-        self.num_env_interactions += len(rewards)
         mdp_tuple = (states, actions, next_states, rewards, masks)
         
         mdp_tuple = self.normalization(mdp_tuple, update=False)
         states, actions, next_states, rewards, masks = mdp_tuple
+
+        states = torch.from_numpy(states).to(self.device)
+        actions = torch.from_numpy(actions).to(self.device)
+        next_states = torch.from_numpy(next_states).to(self.device)
+        rewards = torch.from_numpy(rewards).to(self.device)
+        masks = torch.from_numpy(masks).to(self.device)
+        logprobs = torch.from_numpy(logprobs).to(self.device)
+        successes = torch.from_numpy(successes).to(self.device)
         
         # COMPUTE ADVANTAGES FOR POLICY UPDATE
         with torch.no_grad():
@@ -225,23 +234,18 @@ class HiMeta(nn.Module):
 
         # GET THE ACTOR ADVANTAGE ESTIMATION
         advantages, returns = estimate_advantages(rewards, masks, values, self.gamma, self.tau, self.device)
-        episodic_reward = estimate_episodic_value(rewards, masks, 1.0, self.device)
+        episodic_reward = np.sum(batch['rewards'])/ len(np.where(batch['masks'] == 0)[0]) #  estimate_episodic_value(, masks, 1.0, self.device)
 
         grad_norm_list = []
         weight_norm_list = []
         # Update the parameters
         for _ in range(self.K_epochs):
             y_embedded_states, z_embedded_states, (z, z_mu, z_std), (loss_cat, loss_occ) = self.embed(mdp_tuple) # for LL actor
-            
-            # COMPUTE THE CRITIC L2 LOSS
-            param_norm = self.get_weight_norm()
-            weight_norm_list.append(param_norm)
-            l2_loss = param_norm['weight_norm/LL_critic'] * self.l2_reg
 
             # COMPUTE THE CRITIC LOSS THAT TRAINS THE HIGH-LEVEL MODEL AND THE CRITIC ITSELF
             r_pred = self.LLmodel.critic(y_embedded_states) # y embedding b/c it is sub-task info while z is action-task info; this is not action-value fn
             
-            value_loss = self.loss_fn(r_pred, returns) + l2_loss
+            value_loss = self.loss_fn(r_pred, returns)
             loss_cat = loss_cat * value_loss.detach() # to scale
             loss_occ = loss_occ * value_loss.detach() # to scale
 
@@ -268,7 +272,10 @@ class HiMeta(nn.Module):
             # UPDATE THE ALL MODELS
             self.optimizers.zero_grad()
             loss.backward()
+
             grad_norm_list.append(self.get_grad_norm())
+            weight_norm_list.append(self.get_weight_norm())
+
             self.optimizers.step()
 
         training_output = {
@@ -279,9 +286,8 @@ class HiMeta(nn.Module):
             'loss/decoder_kl_loss': kl_loss.item(),
             'loss/occupancy_loss': loss_occ.item(),
             'loss/cat_ent_loss': loss_cat.item(),
-            'train/episodic_reward': episodic_reward.item(),
+            'train/episodic_reward': episodic_reward,
             'train/success': successes.mean().item(),
-            'train/num_env_interactions': self.num_env_interactions
         }
 
         grad_norm = self.average_dict(grad_norm_list)
@@ -289,7 +295,10 @@ class HiMeta(nn.Module):
 
         result = {**training_output, **grad_norm, **param_norm}
         
-        return result
+        self.eval()
+        t_end = time.time()
+
+        return result, t_end - t_start
     
     def save_model(self, logdir, epoch, is_best=False):
         self.LLmodel = self.LLmodel.cpu()
@@ -301,7 +310,7 @@ class HiMeta(nn.Module):
             path = os.path.join(logdir, "best_model.p")
         else:
             path = os.path.join(logdir, "model_" + str(epoch) + ".p")
-        pickle.dump((self.LLmodel, self.ILmodel, self.HLmodel), open(path, 'wb'))
+        pickle.dump((self.LLmodel, self.ILmodel, self.HLmodel, self.state_scaler, self.reward_scaler), open(path, 'wb'))
 
         self.LLmodel = self.LLmodel.to(self.device)
         self.ILmodel = self.ILmodel.to(self.device)

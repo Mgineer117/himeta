@@ -98,6 +98,7 @@ class MFPolicyTrainer:
         # initialize the essential training components
         self.last_max_reward = 0.0
         self.last_max_success = 0.0
+        self.num_env_steps = 0
 
         # logging parameters
         self.current_epoch = 0
@@ -121,39 +122,47 @@ class MFPolicyTrainer:
         last_3_success_performance = deque(maxlen=3)
         last_3_final_success_performance = deque(maxlen=3)
         # train loop
-        for e in trange(self._init_epoch+1, self._epoch+1, desc=f"Epoch"):
-            self.current_epoch = e
+        self.policy.eval() # policy only has to be train_mode in policy_learn, since sampling needs eval_mode as well.
+        for e in trange(self._init_epoch, self._epoch, desc=f"Epoch"):
             self.recorded_frames = []
-
-            if e == 1:
+            if e == 10:
                 # first iter evaluate so it's e = 0
-                rew_sum, suc_sum, f_suc_sum = self._evaluate(e=0, it=0)
+                rew_sum, suc_sum, f_suc_sum = self._evaluate(e=0)
                 last_3_reward_performance.append(rew_sum)
                 last_3_success_performance.append(suc_sum)
                 last_3_final_success_performance.append(f_suc_sum)
 
+            
             for it in trange(self._init_step_per_epoch, self._step_per_epoch, desc=f"Training", leave=False):
                 if self.visualize_latent_space and self.embed_dim > 0:
                     self.init_latent_path(e, it)
                     self.init_render_path(e, it)
 
                 batch, sample_time = self.sampler.collect_samples(self.policy, render_path=self.render_path, latent_path=self.latent_path)
-                loss = self.policy.learn(batch); loss['sample_time'] = sample_time
+                loss, update_time = self.policy.learn(batch); self.num_env_steps += len(batch['rewards'])
+                
+                loss['time/sample_time'] = sample_time
+                loss['time/update_time'] = update_time
+                loss['train/num_env_steps'] = self.num_env_steps
+
                 # Logging
                 self.logger.store(**loss)
                 self.logger.write_without_reset(int(e*self._step_per_epoch + it))
                 for key, value in loss.items():
                     self.writer.add_scalar(key, value, int(e*self._step_per_epoch + it))
+            
 
             if self.lr_scheduler is not None:
                 self.lr_scheduler.step()
             
+            self.current_epoch += 1
+            
             # evaluate current policy
-            rew_sum, suc_sum, f_suc_sum = self._evaluate(e, it)
+            rew_sum, suc_sum, f_suc_sum = self._evaluate(self.current_epoch)
             last_3_reward_performance.append(rew_sum)
             last_3_success_performance.append(suc_sum)
             last_3_final_success_performance.append(f_suc_sum)
-
+            
             # save checkpoint
             if self.current_epoch % self.log_interval == 0:
                 self.policy.save_model(self.logger.checkpoint_dir, e)
@@ -162,7 +171,8 @@ class MFPolicyTrainer:
                 self.policy.save_model(self.logger.log_dir, e, is_best=True)
                 self.last_max_reward = np.mean(last_3_reward_performance)
                 self.last_max_success = np.mean(last_3_success_performance)
-        
+            
+            
         self.logger.print("total time: {:.2f}s".format(time.time() - start_time))
         self.writer.close()
         return {"last_3_reward_performance": np.mean(last_3_reward_performance),
@@ -170,8 +180,7 @@ class MFPolicyTrainer:
                 "last_3_final_success_performance": np.mean(last_3_final_success_performance),
                 }
 
-    def _evaluate(self, e, it) -> Dict[str, List[float]]:
-        self.policy.eval()
+    def _evaluate(self, e) -> Dict[str, List[float]]:
         self.policy.to_device()
 
         rew_sum = 0; suc_sum = 0; f_suc_sum = 0
@@ -213,13 +222,12 @@ class MFPolicyTrainer:
 
         # eval logging
         self.logger.store(**eval_dict)        
-        self.logger.write(int(e*self._step_per_epoch + it), display=False)
+        self.logger.write(int(e*self._step_per_epoch), display=False)
         for key, value in eval_dict.items():
-            self.writer.add_scalar(key, value, int(e*self._step_per_epoch + it))
+            self.writer.add_scalar(key, value, int(e*self._step_per_epoch))
         
         self.policy.to_device(self.device)
-        self.policy.train()
-        
+
         return rew_sum, suc_sum, f_suc_sum
     
     def eval_loop(self, env, queue=None) -> Dict[str, List[float]]:

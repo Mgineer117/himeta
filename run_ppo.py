@@ -57,16 +57,16 @@ def train():
             num_cores=args.num_cores,
             device=args.device,
         )
-
-        # define running_stat
-        state_scaler = ZFilter(shape=args.obs_shape) if args.normalize_state else None
-        reward_scaler = ZFilter(shape=(1,), conditioner=args.reward_conditioner) if args.normalize_reward else None
             
         # import pre-trained model before defining actual models
         if args.import_model:
             print('Loading previous model parameters....')
-            low_level_model, int_level_model, high_level_model = pickle.load(open('model/model.p', "rb"))
+            low_level_model, int_level_model, high_level_model, state_scaler, reward_scaler = pickle.load(open('model/model.p', "rb"))
         else:
+            # define running_stat
+            state_scaler = ZFilter(shape=args.obs_shape) if args.normalize_state else None
+            reward_scaler = ZFilter(shape=(1,), conditioner=args.reward_conditioner) if args.normalize_reward else None
+
             low_level_model = LLmodel(
                 actor_hidden_dim=args.actor_hidden_dims,
                 critic_hidden_dim=args.critic_hidden_dims,
@@ -120,7 +120,6 @@ def train():
             K_epochs=args.K_epochs,
             eps_clip=args.eps_clip,
             entropy_scaler=args.entropy_scaler,
-            l2_reg=args.l2_reg,
             state_scaler=state_scaler,
             reward_scaler=reward_scaler,
             device=args.device

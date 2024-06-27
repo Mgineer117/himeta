@@ -37,12 +37,11 @@ class RecurrentEncoder(nn.Module):
         # prepare for batch update
         mdp, lengths = mdp_and_lengths
         mdp = torch.as_tensor(mdp, device=self.device, dtype=torch.float32)
-        trj, seq, fea = mdp.shape
         
         if is_batch:
             # pass into LSTM with allowing automatic initialization for each trajectory
             out, _ = self.lstm(mdp)
-            output = torch.zeros((sum(lengths), fea)).to(self.device)
+            output = torch.zeros((sum(lengths), self.rnn_hidden_dim)).to(self.device)
             last_length = 0
             for i, length in enumerate(lengths):
                 output[last_length:last_length+length, :] = out[i, :length, :]

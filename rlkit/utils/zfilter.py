@@ -7,11 +7,11 @@ import pdb
 class RunningStat(object):
     def __init__(self, shape):
         self._n = 0
-        self._M = np.zeros(shape)
-        self._S = np.zeros(shape)
+        self._M = np.zeros(shape).astype(np.float32)
+        self._S = np.zeros(shape).astype(np.float32)
 
     def push(self, x):
-        x = np.asarray(x)
+        x = np.asarray(x).astype(np.float32)
 
         assert x.shape == self._M.shape
         self._n += 1
@@ -42,7 +42,6 @@ class RunningStat(object):
     def shape(self):
         return self._M.shape
 
-
 class ZFilter:
     """
     y = (x-mean)/std
@@ -58,7 +57,6 @@ class ZFilter:
         self.rs = RunningStat(shape)
 
     def __call__(self, x, update):
-        x = x * self.conditioner
         if update:
             self.rs.push(x)
         if self.demean:
@@ -67,5 +65,6 @@ class ZFilter:
             x = x / (self.rs.std + 1e-8)
         if self.clip:
             x = np.clip(x, -self.clip, self.clip)
-        return x
+        x = x * self.conditioner
+        return x.astype(np.float32)
 

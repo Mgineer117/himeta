@@ -27,13 +27,13 @@ def get_args():
     parser.add_argument('--decoder-hidden-dims', type=tuple, default=(32, 64, 128, 128))
     parser.add_argument('--categorical-hidden-dims', type=tuple, default=(512, 512))
     parser.add_argument('--LSTM-hidden-size', type=int, default=256)
-    parser.add_argument('--state-embed-hidden-dims', type=tuple, default=(64, 64))
-    parser.add_argument('--action-embed-hidden-dims', type=tuple, default=(32, 32))
-    parser.add_argument('--reward-embed-hidden-dims', type=tuple, default=(16, 16))
+    parser.add_argument('--state-embed-hidden-dims', type=tuple, default=(64,), help='')
+    parser.add_argument('--action-embed-hidden-dims', type=tuple, default=(32,))
+    parser.add_argument('--reward-embed-hidden-dims', type=tuple, default=(16,))
 
     # Learning rates
     parser.add_argument("--actor-lr", type=float, default=7e-4)
-    parser.add_argument("--critic-lr", type=float, default=7e-4)
+    parser.add_argument("--critic-lr", type=float, default=7e-3)
     parser.add_argument("--IL-lr", type=float, default=1e-3)
     parser.add_argument("--HL-lr", type=float, default=1e-3)
     # PPO parameters
@@ -44,14 +44,13 @@ def get_args():
     parser.add_argument("--gamma", type=float, default=0.99)
     parser.add_argument("--sigma-min", type=float, default=-0.5)
     parser.add_argument("--sigma-max", type=float, default=0.5)
-    parser.add_argument("--l2-reg", type=float, default=1e-4)
 
     # Architecutral parameters
-    parser.add_argument("--drop-out-rate", type=float, default=0.9)
+    parser.add_argument("--drop-out-rate", type=float, default=0.7)
     parser.add_argument("--occ-loss-type", type=str, default='exp') # exp, log, linear, none
     parser.add_argument("--embed-dim", type=int, default=5)
     parser.add_argument("--mask-type", type=str, default='ego') # ego or other or none # this is for skill embedding
-    parser.add_argument("--policy-mask-type", type=str, default='none') # ego or other or none # this is for skill embedding
+    parser.add_argument("--policy-mask-type", type=str, default='ego') # ego or other or none # this is for skill embedding
 
     '''Sampling parameters'''
     parser.add_argument('--epoch', type=int, default=50)
@@ -63,8 +62,8 @@ def get_args():
     parser.add_argument("--eval_episodes", type=int, default=2)
     
     '''Algorithmic parameters'''
-    parser.add_argument("--normalize-state", type=bool, default=False)
-    parser.add_argument("--normalize-reward", type=bool, default=False)
+    parser.add_argument("--normalize-state", type=bool, default=True)
+    parser.add_argument("--normalize-reward", type=bool, default=True)
     parser.add_argument("--reward-conditioner", type=float, default=1e-2) 
     parser.add_argument("--rendering", type=bool, default=True)
     parser.add_argument("--visualize-latent-space", type=bool, default=True)
