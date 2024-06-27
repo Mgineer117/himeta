@@ -219,9 +219,9 @@ class OnlineSampler:
                 memory[k] = memory[k][:thread_batch_size]
         
         # for logging task-wise performance
-        memory[env.task_name + '_reward'] = np.sum(memory['rewards']) / len((np.where(memory['masks']) == 0)[0])
-        memory[env.task_name + '_success'] = np.sum(memory['successes']) / len((np.where(memory['masks']) == 0)[0])
-
+        memory[env.task_name + '_reward'] = np.sum(memory['rewards']) / len((np.where(memory['masks'] == 0))[0])
+        memory[env.task_name + '_success'] = np.sum(memory['successes']) / len((np.where(memory['masks'] == 0))[0])
+                                                                           
         if queue is not None:
             queue.put([pid, memory])
         else:
