@@ -138,7 +138,7 @@ class MFPolicyTrainer:
 
                 # Logging to WandB and Tensorboard
                 self.logger.store(**loss)
-                self.logger.write(int(e*self._step_per_epoch + it))
+                self.logger.write(int(e*self._step_per_epoch + it), display=False)
                 for key, value in loss.items():
                     self.writer.add_scalar(key, value, int(e*self._step_per_epoch + it))
             
