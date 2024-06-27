@@ -241,7 +241,7 @@ class OnlineSampler:
 
         task_dict_list = [None] * self.total_num_worker
         reward_dict = {'train_reward/' + key + '_reward': 0 for key in self.task_names}
-        success_dict = {'train_mean/' + key + '_success': 0 for key in self.task_names}
+        success_dict = {'train_success/' + key + '_success': 0 for key in self.task_names}
         rs_dict = {**reward_dict, **success_dict}
 
         for round_number in range(self.rounds):
