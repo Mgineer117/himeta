@@ -219,13 +219,13 @@ class OnlineSampler:
                 memory[k] = memory[k][:thread_batch_size]
         
         # for logging task-wise performance
-        memory[env.task_name + '_reward'] = np.sum(memory['rewards']) / len((np.where(memory['masks'] == 0))[0])
-        memory[env.task_name + '_success'] = np.sum(memory['successes']) / len((np.where(memory['masks'] == 0))[0])
+        task_dict = {'train/'+env.task_name + '_reward': np.sum(memory['rewards']) / len((np.where(memory['masks'] == 0))[0]),
+                     'train/'+env.task_name + '_success': np.sum(memory['successes']) / len((np.where(memory['masks'] == 0))[0])}
                                                                            
         if queue is not None:
-            queue.put([pid, memory])
+            queue.put([pid, memory, task_dict])
         else:
-            return memory
+            return memory, task_dict
 
     def collect_samples(self, policy, deterministic=False, pid=None, latent_path=None):
         '''
@@ -239,6 +239,11 @@ class OnlineSampler:
         env_idx = 0
         worker_idx = 0
 
+        task_dict_list = [None] * self.total_num_worker
+        reward_dict = {'train/' + key + '_reward' for key in self.task_names}
+        success_dict = {'train/' + key + '_success' for key in self.task_names}
+        rs_dict = {**reward_dict, **success_dict}
+
         for round_number in range(self.rounds):
             processes = []
             if round_number == self.rounds - 1:
@@ -251,8 +256,9 @@ class OnlineSampler:
                 for _ in range(workers_for_env):
                     if worker_idx == self.total_num_worker - 1:
                         '''Main thread process'''
-                        memory = self.collect_trajectory(worker_idx, None, env, policy, self.thread_batch_size,
+                        memory, task_dict = self.collect_trajectory(worker_idx, None, env, policy, self.thread_batch_size,
                                                          self.episode_len, self.episode_num, deterministic)
+                        task_dict_list[-1] = task_dict
                     else:
                         '''Sub-thread process'''
                         worker_args = (worker_idx, queue, env, policy, self.thread_batch_size, 
@@ -267,12 +273,18 @@ class OnlineSampler:
         
         worker_memories = [None] * (worker_idx - 1)
         for _ in range(worker_idx - 1): 
-            pid, worker_memory = queue.get()
+            pid, worker_memory, task_dict = queue.get()
             worker_memories[pid] = worker_memory
+            task_dict_list[pid] = task_dict
 
         for worker_memory in worker_memories[::-1]: # concat in order
             for k in memory:
                 memory[k] = np.concatenate((memory[k], worker_memory[k]), axis=0)
+
+        ## for additional logging
+        for task_dict in task_dict_list:
+            for key, value in task_dict.items():
+                rs_dict[key] += value / self.num_worker_per_env
 
         t_end = time.time()
 
@@ -289,4 +301,4 @@ class OnlineSampler:
         
         policy.to_device(self.device)
 
-        return memory, t_end - t_start
+        return memory, rs_dict, t_end - t_start

@@ -127,10 +127,11 @@ class MFPolicyTrainer:
 
             for it in trange(self._step_per_epoch, desc=f"Training", leave=False):
                 latent_path = self.get_latent_path() if self.visualize_latent_space and it == 0 else None
-                batch, sample_time = self.sampler.collect_samples(self.policy, latent_path=latent_path)
+                batch, rs_dict, sample_time = self.sampler.collect_samples(self.policy, latent_path=latent_path)
                 loss, update_time = self.policy.learn(batch); self.num_env_steps += len(batch['rewards'])
                 
                 # Logging further info
+                loss = {**loss, **rs_dict}
                 for env in self.training_envs:
                     loss['train/'+env.task_name+'_reward'] = np.mean(batch[env.task_name + '_reward'])
                     loss['train/'+env.task_name+'_success'] = np.mean(batch[env.task_name + '_success'])
