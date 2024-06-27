@@ -69,6 +69,7 @@ class OnlineSampler:
         self.episode_len = episode_len
         self.episode_num = episode_num
         self.training_envs = training_envs
+        self.task_names = [env.task_name for env in self.training_envs]
         self.running_state = running_state
 
         self.device = torch.device(device)
@@ -128,7 +129,7 @@ class OnlineSampler:
         cv2.destroyAllWindows()
 
     def collect_trajectory(self, pid, queue, env, policy, thread_batch_size, episode_len,
-                           episode_num, deterministic=False, render_path=None):
+                           episode_num, deterministic=False):
         # estimate the batch size to hava a large batch
         batch_size = thread_batch_size + episode_len
         data = self.get_reset_data(batch_size=batch_size)
@@ -216,12 +217,17 @@ class OnlineSampler:
         else:
             for k in memory:
                 memory[k] = memory[k][:thread_batch_size]
+        
+        # for logging task-wise performance
+        memory[env.task_name + '_reward'] = np.sum(memory['rewards']) / len((np.where(memory['masks']) == 0)[0])
+        memory[env.task_name + '_success'] = np.sum(memory['successes']) / len((np.where(memory['masks']) == 0)[0])
+
         if queue is not None:
             queue.put([pid, memory])
         else:
             return memory
 
-    def collect_samples(self, policy, deterministic=False, pid=None, render_path=None, latent_path=None):
+    def collect_samples(self, policy, deterministic=False, pid=None, latent_path=None):
         '''
         All sampling and saving to the memory is done in numpy.
         return: dict() with elements in numpy
@@ -246,11 +252,11 @@ class OnlineSampler:
                     if worker_idx == self.total_num_worker - 1:
                         '''Main thread process'''
                         memory = self.collect_trajectory(worker_idx, None, env, policy, self.thread_batch_size,
-                                                         self.episode_len, self.episode_num, deterministic, render_path)
+                                                         self.episode_len, self.episode_num, deterministic)
                     else:
                         '''Sub-thread process'''
                         worker_args = (worker_idx, queue, env, policy, self.thread_batch_size, 
-                                self.episode_len, self.episode_num, deterministic, render_path)
+                                self.episode_len, self.episode_num, deterministic)
                         p = multiprocessing.Process(target=self.collect_trajectory, args=worker_args)
                         processes.append(p)
                         p.start()
@@ -263,30 +269,24 @@ class OnlineSampler:
         for _ in range(worker_idx - 1): 
             pid, worker_memory = queue.get()
             worker_memories[pid] = worker_memory
-        
-        t_end = time.time()
-        
-        if latent_path is not None:
-            '''draw latent variable !!!'''
-            y_info = [worker_memories[i]['ys'] for i in range(self.num_worker_per_env-1, len(worker_memories), self.num_worker_per_env)]
-            y_info.append(memory['ys'])
-            
-            z_info = [worker_memories[i]['zs'] for i in range(self.num_worker_per_env-1, len(worker_memories), self.num_worker_per_env)]
-            z_info.append(memory['zs'])
 
-            latent_info = [y_info, z_info]
-
-            tasks_name = []
-            for env in self.training_envs:
-                tasks_name.append(env.task_name)
-
-            for info, path in zip(latent_info, latent_path):
-                visualize_latent_variable(tasks_name, info, path)
-            
-        for worker_memory in worker_memories:
+        for worker_memory in worker_memories[::-1]: # concat in order
             for k in memory:
                 memory[k] = np.concatenate((memory[k], worker_memory[k]), axis=0)
 
+        t_end = time.time()
+
+        if latent_path is not None:
+            worker_memories += [memory]
+            '''draw latent variable !!!'''
+            y_info = [worker_memories[i]['ys'] for i in range(0, len(worker_memories), self.num_worker_per_env)]
+            z_info = [worker_memories[i]['zs'] for i in range(0, len(worker_memories), self.num_worker_per_env)]
+
+            latent_info = [y_info, z_info]
+
+            for info, path in zip(latent_info, latent_path):
+                visualize_latent_variable(self.task_names, info, path)
+        
         policy.to_device(self.device)
 
         return memory, t_end - t_start

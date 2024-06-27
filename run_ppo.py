@@ -126,9 +126,11 @@ def train():
         )
 
         # setup logger both using WandB and Tensorboard
-        default_cfg = vars(args)#asdict(args)
-        args.group = '-'.join((args.task, args.algo_name, unique_id))
-        args.name = '-'.join((args.algo_name, unique_id, "seed:" + str(seed)))
+        default_cfg = vars(args)
+        if args.group is None:
+            args.group = '-'.join((args.task, args.algo_name, unique_id))
+        if args.name is None:
+            args.name = '-'.join((args.algo_name, unique_id, "seed:" + str(seed)))
         args.logdir = os.path.join(args.logdir, args.group)  
         
         logger = WandbLogger(default_cfg, args.project, args.group, args.name, args.logdir)

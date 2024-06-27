@@ -63,7 +63,6 @@ class MFPolicyTrainer:
         epoch: int = 1000,
         init_epoch: int = 0,
         step_per_epoch: int = 1000,
-        init_step_per_epoch: int = 0,
         eval_episodes: int = 10,
         rendering: bool = False,
         lr_scheduler: Optional[torch.optim.lr_scheduler._LRScheduler] = None,
@@ -86,7 +85,6 @@ class MFPolicyTrainer:
         self._epoch = epoch
         self._step_per_epoch = step_per_epoch
         self._init_epoch = init_epoch
-        self._init_step_per_epoch = init_step_per_epoch
         self._eval_episodes = eval_episodes
         self.lr_scheduler = lr_scheduler
 
@@ -101,15 +99,11 @@ class MFPolicyTrainer:
         self.num_env_steps = 0
 
         # logging parameters
-        self.current_epoch = 0
         self.log_interval = log_interval
         self.rendering = rendering
         self.visualize_latent_space = visualize_latent_space
-        self.render_path = None
-        self.latent_path = None
         if self.visualize_latent_space:
-            directory = os.path.join(self.logger.checkpoint_dir, 'latent')
-            os.makedirs(directory)
+            os.makedirs(os.path.join(self.logger.checkpoint_dir, 'latent'))
         self.recorded_frames = []
 
         self.seed = seed
@@ -124,54 +118,43 @@ class MFPolicyTrainer:
         # train loop
         self.policy.eval() # policy only has to be train_mode in policy_learn, since sampling needs eval_mode as well.
         for e in trange(self._init_epoch, self._epoch, desc=f"Epoch"):
-            self.recorded_frames = []
-            if e == 0:
-                # first iter evaluate so it's e = 0
-                rew_sum, suc_sum, f_suc_sum = self._evaluate(e=0)
-                last_3_reward_performance.append(rew_sum)
-                last_3_success_performance.append(suc_sum)
-                last_3_final_success_performance.append(f_suc_sum)
+            self.current_epoch = e
 
-            
-            for it in trange(self._init_step_per_epoch, self._step_per_epoch, desc=f"Training", leave=False):
-                if self.visualize_latent_space and self.embed_dim > 0:
-                    self.init_latent_path(e, it)
-                    self.init_render_path(e, it)
-
-                batch, sample_time = self.sampler.collect_samples(self.policy, render_path=self.render_path, latent_path=self.latent_path)
-                loss, update_time = self.policy.learn(batch); self.num_env_steps += len(batch['rewards'])
-                
-                loss['time/sample_time'] = sample_time
-                loss['time/update_time'] = update_time
-                loss['train/num_env_steps'] = self.num_env_steps
-
-                # Logging
-                self.logger.store(**loss)
-                self.logger.write_without_reset(int(e*self._step_per_epoch + it))
-                for key, value in loss.items():
-                    self.writer.add_scalar(key, value, int(e*self._step_per_epoch + it))
-            
-
-            if self.lr_scheduler is not None:
-                self.lr_scheduler.step()
-            
-            self.current_epoch += 1
-            
-            # evaluate current policy
-            rew_sum, suc_sum, f_suc_sum = self._evaluate(self.current_epoch)
+            rew_sum, suc_sum, f_suc_sum = self.evaluate(e)
             last_3_reward_performance.append(rew_sum)
             last_3_success_performance.append(suc_sum)
             last_3_final_success_performance.append(f_suc_sum)
+
+            for it in trange(self._step_per_epoch, desc=f"Training", leave=False):
+                latent_path = self.get_latent_path() if self.visualize_latent_space and it == 0 else None
+                batch, sample_time = self.sampler.collect_samples(self.policy, latent_path=latent_path)
+                loss, update_time = self.policy.learn(batch); self.num_env_steps += len(batch['rewards'])
+                
+                # Logging further info
+                for env in self.training_envs:
+                    loss['train/'+env.task_name+'_reward'] = np.mean(batch[env.task_name + '_reward'])
+                    loss['train/'+env.task_name+'_success'] = np.mean(batch[env.task_name + '_success'])
+                loss['train/num_env_steps'] = self.num_env_steps
+                loss['time/sample_time'] = sample_time
+                loss['time/update_time'] = update_time
+
+                # Logging to WandB and Tensorboard
+                self.logger.store(**loss)
+                self.logger.write(int(e*self._step_per_epoch + it))
+                for key, value in loss.items():
+                    self.writer.add_scalar(key, value, int(e*self._step_per_epoch + it))
+            
+            if self.lr_scheduler is not None:
+                self.lr_scheduler.step()
             
             # save checkpoint
-            if self.current_epoch % self.log_interval == 0:
+            if e % self.log_interval == 0:
                 self.policy.save_model(self.logger.checkpoint_dir, e)
             # save the best model
             if np.mean(last_3_reward_performance) >= self.last_max_reward and np.mean(last_3_success_performance) >= self.last_max_success:
                 self.policy.save_model(self.logger.log_dir, e, is_best=True)
                 self.last_max_reward = np.mean(last_3_reward_performance)
                 self.last_max_success = np.mean(last_3_success_performance)
-            
             
         self.logger.print("total time: {:.2f}s".format(time.time() - start_time))
         self.writer.close()
@@ -180,7 +163,7 @@ class MFPolicyTrainer:
                 "last_3_final_success_performance": np.mean(last_3_final_success_performance),
                 }
 
-    def _evaluate(self, e) -> Dict[str, List[float]]:
+    def evaluate(self, e) -> Dict[str, List[float]]:
         self.policy.to_device()
 
         rew_sum = 0; suc_sum = 0; f_suc_sum = 0
@@ -279,7 +262,6 @@ class MFPolicyTrainer:
                          "final_success":episode_final_success/episode_length,
                         }
                     )
-                    break
 
         task_reward_list = [ep_info["reward"] for ep_info in eval_ep_info_buffer]
         task_success_list = [ep_info["success"] for ep_info in eval_ep_info_buffer]
@@ -321,14 +303,8 @@ class MFPolicyTrainer:
         cv2.destroyAllWindows()
         self.recorded_frames = []
 
-    def init_latent_path(self, e, it):
-        if e % self.log_interval == 0 and it == 0:
-            self.latent_path = (os.path.join(self.logger.checkpoint_dir, 'latent', 'y', str(self.current_epoch*self._step_per_epoch) +'.png'),
-                                os.path.join(self.logger.checkpoint_dir, 'latent', 'z', str(self.current_epoch*self._step_per_epoch) +'.png'))
-        else:
-            self.latent_path = None
-    def init_render_path(self, e, it):
-        if e % self.log_interval == 0 and it == 0:
-            self.render_path = os.path.join(self.logger.checkpoint_dir, 'train_video', str(self.current_epoch*self._step_per_epoch))
-        else:
-            self.render_path = None
+    def get_latent_path(self):
+        latent_path = (os.path.join(self.logger.checkpoint_dir, 'latent', 'y', str(self.current_epoch*self._step_per_epoch) +'.png'),
+                            os.path.join(self.logger.checkpoint_dir, 'latent', 'z', str(self.current_epoch*self._step_per_epoch) +'.png'))
+        return latent_path
+        
