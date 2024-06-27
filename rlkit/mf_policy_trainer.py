@@ -132,9 +132,6 @@ class MFPolicyTrainer:
                 
                 # Logging further info
                 loss = {**loss, **rs_dict}
-                for env in self.training_envs:
-                    loss['train/'+env.task_name+'_reward'] = np.mean(batch[env.task_name + '_reward'])
-                    loss['train/'+env.task_name+'_success'] = np.mean(batch[env.task_name + '_success'])
                 loss['train/num_env_steps'] = self.num_env_steps
                 loss['time/sample_time'] = sample_time
                 loss['time/update_time'] = update_time
