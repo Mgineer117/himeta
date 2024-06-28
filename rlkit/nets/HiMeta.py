@@ -250,7 +250,7 @@ class HiMeta(nn.Module):
             loss_occ = loss_occ * value_loss.detach() # to scale
 
             # COMPUTE THE VAE (INTERMEDIATE LEVEL) LOSS
-            (decoder_loss, state_pred_loss, kl_loss) = self.ILmodel.decode(states, next_states, z, z_mu, z_std)
+            (decoder_loss, state_pred_loss, kl_loss) = self.ILmodel.decode(states, next_states, masks, z, z_mu, z_std)
 
             # COMPUTE THE ACTOR LOSS
             dist = self.LLmodel.actor(z_embedded_states.detach())

@@ -69,12 +69,12 @@ def get_args():
     # Architecutral parameters
     parser.add_argument("--drop-out-rate", type=float, default=0.7, 
                         help='used for categorical network and decoder in HL and IL model respectively.')
-    parser.add_argument("--occ-loss-type", type=str, default='none', 
+    parser.add_argument("--occ-loss-type", type=str, default='exp', 
                         help='sub-task-wise label occupancy parameters. Either of exp, log, linear or none \
                             It yields penalty as the network wants to use wider range of labels.')
     parser.add_argument("--embed-dim", type=int, default=5, 
                         help='embedding dimension both for categorical network and VAE')
-    parser.add_argument("--forecast-steps", type=int, default=0, 
+    parser.add_argument("--forecast-steps", type=int, default=15, 
                         help='How many discrete time steps to forecast; to discover the subgoal that is to be this amount ahead')
     parser.add_argument("--mask-type", type=str, default='ego', 
                         help='whether to use masking in VAE; either of "ego" or "none" \

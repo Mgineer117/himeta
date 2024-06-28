@@ -173,16 +173,16 @@ class ILmodel(nn.Module):
         self.decoder = MLP(
             input_dim=latent_dim + state_dim - self.masking_length,
             hidden_dims=decoder_hidden_dims,
-            output_dim=state_dim,# - self.masking_length,
+            output_dim=state_dim - self.masking_length,
             activation=nn.LeakyReLU,
             dropout_rate=self.drop_out_rate,
             device=device
         )
 
         self.post_embed = MLP(
-            input_dim=state_dim,# - self.masking_length,
+            input_dim=state_dim - self.masking_length,
             hidden_dims=state_embed_hidden_dims,
-            output_dim=state_dim,# - self.masking_length,
+            output_dim=state_dim - self.masking_length,
             activation=nn.Tanh,
             device=device
         )
@@ -227,26 +227,45 @@ class ILmodel(nn.Module):
 
         return ego_states, z, z_mu, z_std
 
-    def decode(self, states: torch.Tensor,  next_states: torch.Tensor, z: Optional[torch.Tensor], z_mu: torch.Tensor, z_std: torch.Tensor) -> torch.Tensor:
+    def preprocess4forcast(self, ego_next_states, masks):
+        n = self.forecast_steps - 1 # -1 because next-state is already t + 1 step forward than state
+        rows, cols = ego_next_states.shape
+        new_ego_next_states = torch.zeros((rows, cols)).to(self.device)
+
+        mask_idx = torch.where(masks == 0)[0]
+        #print('--------------------')
+        #print(mask_idx)
+
+        prev_idx = 0
+        for idx in mask_idx:
+            #print(new_ego_next_states[prev_idx:idx-n+1, :], new_ego_next_states[prev_idx:idx-n+1, :].shape)
+            #print(ego_next_states[prev_idx+n:idx+1, :], ego_next_states[prev_idx+n:idx+1, :].shape)
+            new_ego_next_states[prev_idx:idx-n+1, :] = ego_next_states[prev_idx+n:idx+1, :]
+
+            #print(new_ego_next_states[idx-n+1:idx+1, :], new_ego_next_states[idx-n+1:idx+1, :].shape)
+            #print(ego_next_states[idx, :], ego_next_states[idx, :].shape)
+            new_ego_next_states[idx-n+1:idx+1, :] = ego_next_states[idx, :]
+            
+            #print(new_ego_next_states[prev_idx:idx+1, :])
+
+            prev_idx = idx + 1
+        
+        #print('--------------------')
+        return new_ego_next_states
+
+    def decode(self, states: torch.Tensor,  next_states: torch.Tensor, masks: torch.Tensor, 
+               z: Optional[torch.Tensor], z_mu: torch.Tensor, z_std: torch.Tensor) -> torch.Tensor:
         ego_states = self.torch_delete(states, self.masking_indices, axis=-1)
         ego_next_states = self.torch_delete(next_states, self.masking_indices, axis=-1)
 
-        #n = self.forecast_steps - 1 # -1 because next-state is already t + 1 step forward than state
-        #rows, cols = ego_next_states.shape
-        #new_ego_next_states = torch.zeros((rows, cols)).to(self.device)
-
-        #idx = rows - n
-
-        #new_ego_next_states[:idx, :] = ego_next_states[n:, :]
-        #new_ego_next_states[idx:, :] = ego_next_states[-1, :]
+        new_ego_next_states = self.preprocess4forcast(ego_next_states, masks)        
 
         input = torch.concatenate((ego_states, z), axis=-1)
 
         next_state_logits = self.decoder(input)
         next_state_pred = self.post_embed(next_state_logits)
         
-        state_pred_loss = F.mse_loss(next_state_pred, next_states)
-        #state_pred_loss = F.mse_loss(next_state_pred, new_ego_next_states)
+        state_pred_loss = F.mse_loss(next_state_pred, new_ego_next_states)
         kl_loss = -0.5 * torch.sum(1 + torch.log(z_std.pow(2)) - z_mu.pow(2) - z_std.pow(2))
         
         ELBO_loss = state_pred_loss + kl_loss
