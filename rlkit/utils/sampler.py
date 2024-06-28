@@ -135,18 +135,13 @@ class OnlineSampler:
         data = self.get_reset_data(batch_size=batch_size)
         current_step = 0
         ep_num = 0
-        while current_step < thread_batch_size:
+        while current_step < thread_batch_size or ep_num < episode_num:
             # For each episode, apply different seed for stochasticity
             seed = random.randint(100, 1_000_000)
             torch.manual_seed(seed)
-
-            # break criteria
-            if ep_num >= episode_num:
-                break
             
             # var initialization
             _returns = 0
-            t = 0 
 
             # env initialization
             s, _ = env.reset(seed=seed)
@@ -159,7 +154,7 @@ class OnlineSampler:
             
             # begin the episodic loop by initializing the hidden info of LSTM
             policy.init_encoder_hidden_info()
-            while t < episode_len:
+            for t in range(episode_len):
                 # sample action
                 with torch.no_grad(): 
                     a, logprob, (y, z) = policy(input_tuple, deterministic=deterministic)
@@ -189,12 +184,11 @@ class OnlineSampler:
 
                 s = ns
                 _returns += rew
-                t += 1
     
                 if done:        
                     # clear log
                     ep_num += 1
-                    current_step += t 
+                    current_step += t + 1
                     _returns = 0
                     break
                 
