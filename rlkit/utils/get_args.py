@@ -74,7 +74,7 @@ def get_args():
                             It yields penalty as the network wants to use wider range of labels.')
     parser.add_argument("--embed-dim", type=int, default=5, 
                         help='embedding dimension both for categorical network and VAE')
-    parser.add_argument("--forecast-steps", type=int, default=1, 
+    parser.add_argument("--forecast-steps", type=int, default=0, 
                         help='How many discrete time steps to forecast; to discover the subgoal that is to be this amount ahead')
     parser.add_argument("--mask-type", type=str, default='ego', 
                         help='whether to use masking in VAE; either of "ego" or "none" \
