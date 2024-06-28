@@ -42,13 +42,13 @@ def get_args():
     parser.add_argument('--reward-embed-hidden-dims', type=tuple, default=(16,))
 
     # Learning rates
-    parser.add_argument("--actor-lr", type=float, default=7e-4, 
+    parser.add_argument("--actor-lr", type=float, default=5e-4, 
                         help='PPO-actor learning rate')
-    parser.add_argument("--critic-lr", type=float, default=7e-3, 
+    parser.add_argument("--critic-lr", type=float, default=5e-4,
                         help='PPO-critic learning rate')
-    parser.add_argument("--IL-lr", type=float, default=1e-3, 
+    parser.add_argument("--IL-lr", type=float, default=7e-4, 
                         help='Intermediate-level model learning rate')
-    parser.add_argument("--HL-lr", type=float, default=1e-3, 
+    parser.add_argument("--HL-lr", type=float, default=7e-4, 
                         help='High-level model learning rate')
     # PPO parameters
     parser.add_argument("--K-epochs", type=int, default=5, 
