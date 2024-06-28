@@ -129,6 +129,7 @@ class ILmodel(nn.Module):
         state_dim: int,
         action_dim: int,
         latent_dim: int,
+        time_step:int = 15,
         state_embed_hidden_dims: tuple = (64, 64),
         encoder_hidden_dims: tuple = (128, 64, 32),
         decoder_hidden_dims: tuple = (32, 64, 128),
@@ -142,6 +143,7 @@ class ILmodel(nn.Module):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.latent_dim = latent_dim
+        self.time_step = time_step
         self.masking_indices = masking_indices
         self.masking_length = len(self.masking_indices)
         self.policy_masking_indices = policy_masking_indices
@@ -171,16 +173,16 @@ class ILmodel(nn.Module):
         self.decoder = MLP(
             input_dim=latent_dim + state_dim - self.masking_length,
             hidden_dims=decoder_hidden_dims,
-            output_dim=state_dim,
+            output_dim=state_dim - self.masking_length,
             activation=nn.LeakyReLU,
             dropout_rate=self.drop_out_rate,
             device=device
         )
 
         self.post_embed = MLP(
-            input_dim=state_dim,
+            input_dim=state_dim - self.masking_length,
             hidden_dims=state_embed_hidden_dims,
-            output_dim=state_dim,
+            output_dim=state_dim - self.masking_length,
             activation=nn.Tanh,
             device=device
         )
@@ -227,13 +229,24 @@ class ILmodel(nn.Module):
 
     def decode(self, states: torch.Tensor,  next_states: torch.Tensor, z: Optional[torch.Tensor], z_mu: torch.Tensor, z_std: torch.Tensor) -> torch.Tensor:
         ego_states = self.torch_delete(states, self.masking_indices, axis=-1)
+        ego_next_states = self.torch_delete(next_states, self.masking_indices, axis=-1)
+
+        n = self.time_step - 1 # -1 because next-state is already t + 1 step forward than state
+        rows, cols = ego_next_states.shape
+        new_ego_next_states = torch.zeros((rows, cols)).to(self.device)
+
+        idx = rows - n
+
+        new_ego_next_states[:idx, :] = ego_next_states[n:, :]
+        new_ego_next_states[idx:, :] = ego_next_states[-1, :]
+
         input = torch.concatenate((ego_states, z), axis=-1)
 
         next_state_logits = self.decoder(input)
         next_state_pred = self.post_embed(next_state_logits)
         
         #state_pred_loss = F.mse_loss(next_state_logits, next_states)
-        state_pred_loss = F.mse_loss(next_state_pred, next_states)
+        state_pred_loss = F.mse_loss(next_state_pred, new_ego_next_states)
         kl_loss = -0.5 * torch.sum(1 + torch.log(z_std.pow(2)) - z_mu.pow(2) - z_std.pow(2))
         
         ELBO_loss = state_pred_loss + kl_loss

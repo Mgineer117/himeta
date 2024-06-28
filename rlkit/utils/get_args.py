@@ -37,9 +37,9 @@ def get_args():
     parser.add_argument('--decoder-hidden-dims', type=tuple, default=(32, 64, 128, 128))
     parser.add_argument('--categorical-hidden-dims', type=tuple, default=(512, 512))
     parser.add_argument('--LSTM-hidden-size', type=int, default=256)
-    parser.add_argument('--state-embed-hidden-dims', type=tuple, default=(64, 64))
-    parser.add_argument('--action-embed-hidden-dims', type=tuple, default=(32, 32))
-    parser.add_argument('--reward-embed-hidden-dims', type=tuple, default=(16, 16))
+    parser.add_argument('--state-embed-hidden-dims', type=tuple, default=(64,))
+    parser.add_argument('--action-embed-hidden-dims', type=tuple, default=(32,))
+    parser.add_argument('--reward-embed-hidden-dims', type=tuple, default=(16,))
 
     # Learning rates
     parser.add_argument("--actor-lr", type=float, default=7e-4, 
@@ -92,7 +92,7 @@ def get_args():
                             sampler automatically selects appropriate number of threads given this limit')
     parser.add_argument('--episode-len', type=int, default=500, 
                         help='episodic length; useful when one wants to constrain to long to short horizon')
-    parser.add_argument('--episode-num', type=int, default=10, 
+    parser.add_argument('--episode-num', type=int, default=2, 
                         help='number of episodes to collect for one env')
     parser.add_argument("--eval_episodes", type=int, default=2, 
                         help='number of episodes for evaluation; mean of those is returned as eval performance')
