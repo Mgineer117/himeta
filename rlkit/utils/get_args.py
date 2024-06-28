@@ -74,6 +74,8 @@ def get_args():
                             It yields penalty as the network wants to use wider range of labels.')
     parser.add_argument("--embed-dim", type=int, default=5, 
                         help='embedding dimension both for categorical network and VAE')
+    parser.add_argument("--forecast-steps", type=int, default=15, 
+                        help='How many discrete time steps to forecast; to discover the subgoal that is to be this amount ahead')
     parser.add_argument("--mask-type", type=str, default='ego', 
                         help='whether to use masking in VAE; either of "ego" or "none" \
                             ego leaves directly relavant state elements of agent, while none leaves the other rest')
@@ -92,7 +94,7 @@ def get_args():
                             sampler automatically selects appropriate number of threads given this limit')
     parser.add_argument('--episode-len', type=int, default=500, 
                         help='episodic length; useful when one wants to constrain to long to short horizon')
-    parser.add_argument('--episode-num', type=int, default=2, 
+    parser.add_argument('--episode-num', type=int, default=10, 
                         help='number of episodes to collect for one env')
     parser.add_argument("--eval_episodes", type=int, default=2, 
                         help='number of episodes for evaluation; mean of those is returned as eval performance')

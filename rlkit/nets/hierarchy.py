@@ -129,7 +129,7 @@ class ILmodel(nn.Module):
         state_dim: int,
         action_dim: int,
         latent_dim: int,
-        time_step:int = 15,
+        forecast_steps:int = 15,
         state_embed_hidden_dims: tuple = (64, 64),
         encoder_hidden_dims: tuple = (128, 64, 32),
         decoder_hidden_dims: tuple = (32, 64, 128),
@@ -143,7 +143,7 @@ class ILmodel(nn.Module):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.latent_dim = latent_dim
-        self.time_step = time_step
+        self.forecast_steps = forecast_steps
         self.masking_indices = masking_indices
         self.masking_length = len(self.masking_indices)
         self.policy_masking_indices = policy_masking_indices
@@ -231,7 +231,7 @@ class ILmodel(nn.Module):
         ego_states = self.torch_delete(states, self.masking_indices, axis=-1)
         ego_next_states = self.torch_delete(next_states, self.masking_indices, axis=-1)
 
-        n = self.time_step - 1 # -1 because next-state is already t + 1 step forward than state
+        n = self.forecast_steps - 1 # -1 because next-state is already t + 1 step forward than state
         rows, cols = ego_next_states.shape
         new_ego_next_states = torch.zeros((rows, cols)).to(self.device)
 

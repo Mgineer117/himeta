@@ -135,7 +135,9 @@ class OnlineSampler:
         data = self.get_reset_data(batch_size=batch_size)
         current_step = 0
         ep_num = 0
-        while current_step < thread_batch_size or ep_num < episode_num:
+        while current_step < thread_batch_size:
+            if ep_num >= episode_num:
+                break
             # For each episode, apply different seed for stochasticity
             seed = random.randint(100, 1_000_000)
             torch.manual_seed(seed)
