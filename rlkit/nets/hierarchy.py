@@ -294,7 +294,7 @@ class HLmodel(nn.Module):
         action_dim:int,
         latent_dim: int,
         categorical_hidden_dims: tuple = (512, 512),
-        reccurent_hidden_size: int = 256,
+        recurrent_hidden_size: int = 256,
         encoder_type: str = 'gru',
         state_embed_hidden_dims: tuple = (64, 64),
         action_embed_hidden_dims: tuple = (64, 64),
@@ -343,13 +343,13 @@ class HLmodel(nn.Module):
         '''Encoder definitions'''
         self.encoder = RecurrentEncoder(
             input_size=feature_dim,
-            hidden_size=reccurent_hidden_size,
+            hidden_size=recurrent_hidden_size,
             encoder_type=encoder_type,
             device=device
         )
         # cat(h) -> y -> en(h, y) 
         self.cat_layer = MLP(
-            input_dim=reccurent_hidden_size,
+            input_dim=recurrent_hidden_size,
             hidden_dims=categorical_hidden_dims, # hidden includes the relu activation
             activation=nn.LeakyReLU,
             dropout_rate=self.drop_out_rate,
