@@ -16,14 +16,12 @@ class GumbelSoftmax(nn.Module):
         self.c_dim = c_dim
         self.device = device
 
-    def sample_gumbel(self, shape, is_cuda=False, eps=1e-20):
-        U = torch.rand(shape)
-        if is_cuda:
-            U = U.cuda()
+    def sample_gumbel(self, shape, eps=1e-20):
+        U = torch.rand(shape).to(self.device)
         return -torch.log(-torch.log(U + eps) + eps)
 
     def gumbel_softmax_sample(self, logits, temperature):
-        y = logits + self.sample_gumbel(logits.size(), logits.is_cuda)
+        y = logits + self.sample_gumbel(logits.size())
         return F.softmax(y / temperature, dim=-1)
 
     def gumbel_softmax(self, logits, temperature, hard=False):
@@ -130,6 +128,7 @@ class ILmodel(nn.Module):
         action_dim: int,
         latent_dim: int,
         forecast_steps:int = 15,
+        adaptive_goal: bool = False,
         state_embed_hidden_dims: tuple = (64, 64),
         encoder_hidden_dims: tuple = (128, 64, 32),
         decoder_hidden_dims: tuple = (32, 64, 128),
@@ -232,25 +231,29 @@ class ILmodel(nn.Module):
         rows, cols = ego_next_states.shape
         new_ego_next_states = torch.zeros((rows, cols)).to(self.device)
 
-        mask_idx = torch.where(masks == 0)[0]
-        #print('--------------------')
-        #print(mask_idx)
-
+        adaptive_goal = True
         prev_idx = 0
-        for idx in mask_idx:
-            #print(new_ego_next_states[prev_idx:idx-n+1, :], new_ego_next_states[prev_idx:idx-n+1, :].shape)
-            #print(ego_next_states[prev_idx+n:idx+1, :], ego_next_states[prev_idx+n:idx+1, :].shape)
-            new_ego_next_states[prev_idx:idx-n+1, :] = ego_next_states[prev_idx+n:idx+1, :]
+        mask_idx = torch.where(masks == 0)[0]
+        if adaptive_goal:
+            '''
+            Adaptively moving the sub-goal state to delta(t) amount ahead: delta(t), delta(t), delta(t), delta(t)
+            '''
+            for idx in mask_idx:
+                new_ego_next_states[prev_idx:idx-n+1, :] = ego_next_states[prev_idx+n:idx+1, :]
+                new_ego_next_states[idx-n+1:idx+1, :] = ego_next_states[idx, :]
 
-            #print(new_ego_next_states[idx-n+1:idx+1, :], new_ego_next_states[idx-n+1:idx+1, :].shape)
-            #print(ego_next_states[idx, :], ego_next_states[idx, :].shape)
-            new_ego_next_states[idx-n+1:idx+1, :] = ego_next_states[idx, :]
-            
-            #print(new_ego_next_states[prev_idx:idx+1, :])
+                prev_idx = idx + 1
+        else:
+            '''
+            Fix the sub-goal state given delta(t): 0, 1*delta(t), 2*delta(t)
+            '''
+            for idx in mask_idx:
+                for ep_idx in range(prev_idx, idx-n, n):
+                    new_ego_next_states[prev_idx:ep_idx+n, :] = ego_next_states[ep_idx+n, :]    
+                new_ego_next_states[ep_idx:idx+1, :] = ego_next_states[idx, :]
 
-            prev_idx = idx + 1
-        
-        #print('--------------------')
+                prev_idx = ep_idx + 1
+
         return new_ego_next_states
 
     def decode(self, states: torch.Tensor,  next_states: torch.Tensor, masks: torch.Tensor, 

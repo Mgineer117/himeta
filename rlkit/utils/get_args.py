@@ -69,12 +69,14 @@ def get_args():
     # Architecutral parameters
     parser.add_argument("--drop-out-rate", type=float, default=0.7, 
                         help='used for categorical network and decoder in HL and IL model respectively.')
-    parser.add_argument("--occ-loss-type", type=str, default='exp', 
+    parser.add_argument("--occ-loss-type", type=str, default='none', 
                         help='sub-task-wise label occupancy parameters. Either of exp, log, linear or none \
                             It yields penalty as the network wants to use wider range of labels.')
     parser.add_argument("--embed-dim", type=int, default=5, 
                         help='embedding dimension both for categorical network and VAE')
-    parser.add_argument("--forecast-steps", type=int, default=15, 
+    parser.add_argument("--adaptive-goal", type=bool, default=True, 
+                        help='Is the sub-goal definitions adaptive or fixed in time intervals')
+    parser.add_argument("--forecast-steps", type=int, default=100, 
                         help='How many discrete time steps to forecast; to discover the subgoal that is to be this amount ahead')
     parser.add_argument("--mask-type", type=str, default='ego', 
                         help='whether to use masking in VAE; either of "ego" or "none" \
@@ -83,7 +85,7 @@ def get_args():
                         help='whether to use masking in LL actor; same as above description; either of "ego" or "none"')
 
     '''Sampling parameters'''
-    parser.add_argument('--epoch', type=int, default=50, 
+    parser.add_argument('--epoch', type=int, default=100, 
                         help='total number of epochs; every epoch it does evaluation')
     parser.add_argument('--init-epoch', type=int, default=0, 
                         help='useful when to resume the previous model training')
@@ -105,7 +107,7 @@ def get_args():
     parser.add_argument("--normalize-reward", type=bool, default=True, 
                         help='normalise reward input')
     parser.add_argument("--reward-conditioner", type=float, default=1e-2, 
-                        help='reward scaler') 
+                        help='reward scaler')
     parser.add_argument("--rendering", type=bool, default=True, 
                         help='saves the rendering during evaluation')
     parser.add_argument("--visualize-latent-space", type=bool, default=True, 
