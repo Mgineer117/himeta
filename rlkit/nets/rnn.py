@@ -14,6 +14,7 @@ class RecurrentEncoder(nn.Module):
             self,
             input_size: int,
             hidden_size:int,
+            encoder_type: str = 'gru',
             device="cpu"
     ):
         super().__init__()
@@ -25,8 +26,13 @@ class RecurrentEncoder(nn.Module):
                             self.rnn_hidden_dim, 
                             num_layers=1, 
                             batch_first=True).to(device)
+        
+        self.gru = nn.GRU(self.input_size, 
+                            self.rnn_hidden_dim, 
+                            num_layers=1, 
+                            batch_first=True).to(device)
 
-        self.encoder_type = 'recurrent'
+        self.encoder_type = encoder_type
         self.device = torch.device(device)
 
     def init_hidden_info(self):
@@ -40,7 +46,10 @@ class RecurrentEncoder(nn.Module):
         
         if is_batch:
             # pass into LSTM with allowing automatic initialization for each trajectory
-            out, _ = self.lstm(mdp)
+            if self.encoder_type == 'gru':
+                out, _ = self.lstm(mdp)
+            elif self.encoder_type == 'lstm':
+                out, _ = self.gru(mdp)
             output = torch.zeros((sum(lengths), self.rnn_hidden_dim)).to(self.device)
             last_length = 0
             for i, length in enumerate(lengths):
@@ -49,9 +58,14 @@ class RecurrentEncoder(nn.Module):
             out = output
         else:
             # pass into LSTM
-            out, (hn, cn) = self.lstm(mdp, (self.hn, self.cn))
-            self.hn = hn # update LSTM
-            self.cn = cn # update LSTM
+            if self.encoder_type == 'gru':
+                out, hn = self.gru(mdp, self.hn)
+                self.hn = hn # update hidden for next sampling iter
+            elif self.encoder_type == 'lstm':
+                out, (hn, cn) = self.lstm(mdp, self.hn)
+                self.hn = hn # update hidden for next sampling iter
+                self.cn = cn # update hidden for next sampling iter
+            
 
         return out.squeeze()
     

@@ -36,7 +36,7 @@ def get_args():
     parser.add_argument('--encoder-hidden-dims', type=tuple, default=(128, 128, 64, 32))
     parser.add_argument('--decoder-hidden-dims', type=tuple, default=(32, 64, 128, 128))
     parser.add_argument('--categorical-hidden-dims', type=tuple, default=(512, 512))
-    parser.add_argument('--LSTM-hidden-size', type=int, default=256)
+    parser.add_argument('--recurrent-hidden-size', type=int, default=256)
     parser.add_argument('--state-embed-hidden-dims', type=tuple, default=(64,))
     parser.add_argument('--action-embed-hidden-dims', type=tuple, default=(32,))
     parser.add_argument('--reward-embed-hidden-dims', type=tuple, default=(16,))
@@ -67,6 +67,8 @@ def get_args():
                         help='max deviation as e^sig_max ~= 1.6')
 
     # Architecutral parameters
+    parser.add_argument("--encoder-type", type=str, default='gru', 
+                        help='gru or lstm for encoder architecture')
     parser.add_argument("--drop-out-rate", type=float, default=0.7, 
                         help='used for categorical network and decoder in HL and IL model respectively.')
     parser.add_argument("--occ-loss-type", type=str, default='none', 
@@ -74,7 +76,7 @@ def get_args():
                             It yields penalty as the network wants to use wider range of labels.')
     parser.add_argument("--embed-dim", type=int, default=5, 
                         help='embedding dimension both for categorical network and VAE')
-    parser.add_argument("--adaptive-goal", type=bool, default=True, 
+    parser.add_argument("--adaptive-goal", type=bool, default=False, 
                         help='Is the sub-goal definitions adaptive or fixed in time intervals')
     parser.add_argument("--forecast-steps", type=int, default=100, 
                         help='How many discrete time steps to forecast; to discover the subgoal that is to be this amount ahead')
