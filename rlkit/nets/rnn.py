@@ -50,6 +50,8 @@ class RecurrentEncoder(nn.Module):
                 out, _ = self.lstm(mdp)
             elif self.encoder_type == 'lstm':
                 out, _ = self.gru(mdp)
+            else:
+                raise NotImplementedError('such RNN network is not implemented')
             output = torch.zeros((sum(lengths), self.rnn_hidden_dim)).to(self.device)
             last_length = 0
             for i, length in enumerate(lengths):
@@ -65,7 +67,8 @@ class RecurrentEncoder(nn.Module):
                 out, (hn, cn) = self.lstm(mdp, self.hn)
                 self.hn = hn # update hidden for next sampling iter
                 self.cn = cn # update hidden for next sampling iter
-            
+            else:
+                raise NotImplementedError('such RNN network is not implemented')
 
         return out.squeeze()
     
