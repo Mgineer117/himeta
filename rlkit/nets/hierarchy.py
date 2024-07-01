@@ -128,7 +128,7 @@ class ILmodel(nn.Module):
         action_dim: int,
         latent_dim: int,
         forecast_steps:int = 15,
-        adaptive_goal: bool = False,
+        goal_type: str = 'n_step_forward',
         state_embed_hidden_dims: tuple = (64, 64),
         encoder_hidden_dims: tuple = (128, 64, 32),
         decoder_hidden_dims: tuple = (32, 64, 128),
@@ -142,6 +142,7 @@ class ILmodel(nn.Module):
         self.state_dim = state_dim
         self.action_dim = action_dim
         self.latent_dim = latent_dim
+        self.goal_type = goal_type
         self.forecast_steps = forecast_steps
         self.masking_indices = masking_indices
         self.masking_length = len(self.masking_indices)
@@ -226,26 +227,37 @@ class ILmodel(nn.Module):
 
         return ego_states, z, z_mu, z_std
 
-    def preprocess4forcast(self, ego_next_states, masks):
+    def preprocess4forcast(self, ego_next_states, y, masks):
         n = self.forecast_steps - 1 # -1 because next-state is already t + 1 step forward than state
         rows, cols = ego_next_states.shape
         new_ego_next_states = torch.zeros((rows, cols)).to(self.device)
 
-        adaptive_goal = True
         prev_idx = 0
         mask_idx = torch.where(masks == 0)[0]
-        if adaptive_goal:
+        if self.goal_type == 'task_subgoal':
             '''
-            Adaptively moving the sub-goal state to delta(t) amount ahead: delta(t), delta(t), delta(t), delta(t)
+            Set the goal when the task-label changes
+            '''
+            changing_indices = (y[:-1] != y[1:]).nonzero(as_tuple=True)[0] + 1
+            for idx in mask_idx:
+                boolean = torch.logical_and(changing_indices > prev_idx, changing_indices <= idx)
+                for ep_idx in changing_indices[boolean]:
+                    new_ego_next_states[prev_idx:ep_idx+n, :] = ego_next_states[ep_idx+n, :]    
+                new_ego_next_states[ep_idx:idx+1, :] = ego_next_states[idx, :]
+
+                prev_idx = ep_idx + 1
+        elif self.goal_type == 'n_step_forward':
+            '''
+            Set the goal as the state that is n_step forward
             '''
             for idx in mask_idx:
                 new_ego_next_states[prev_idx:idx-n+1, :] = ego_next_states[prev_idx+n:idx+1, :]
                 new_ego_next_states[idx-n+1:idx+1, :] = ego_next_states[idx, :]
 
                 prev_idx = idx + 1
-        else:
+        elif self.goal_type == 'fix_by_time':
             '''
-            Fix the sub-goal state given delta(t): 0, 1*delta(t), 2*delta(t)
+            Fix the goal to the specified time interval
             '''
             for idx in mask_idx:
                 for ep_idx in range(prev_idx, idx-n, n):
@@ -253,15 +265,23 @@ class ILmodel(nn.Module):
                 new_ego_next_states[ep_idx:idx+1, :] = ego_next_states[idx, :]
 
                 prev_idx = ep_idx + 1
+        
+        '''
+            for idx in mask_idx:
+                for ep_idx in range(prev_idx, idx-n, n):
+                    new_ego_next_states[prev_idx:ep_idx+n, :] = ego_next_states[ep_idx+n, :]    
+                new_ego_next_states[ep_idx:idx+1, :] = ego_next_states[idx, :]
 
+                prev_idx = ep_idx + 1
+        '''
         return new_ego_next_states
 
-    def decode(self, states: torch.Tensor,  next_states: torch.Tensor, masks: torch.Tensor, 
+    def decode(self, states: torch.Tensor,  next_states: torch.Tensor, masks: torch.Tensor, y: torch.Tensor, 
                z: Optional[torch.Tensor], z_mu: torch.Tensor, z_std: torch.Tensor) -> torch.Tensor:
         ego_states = self.torch_delete(states, self.masking_indices, axis=-1)
         ego_next_states = self.torch_delete(next_states, self.masking_indices, axis=-1)
 
-        new_ego_next_states = self.preprocess4forcast(ego_next_states, masks)        
+        new_ego_next_states = self.preprocess4forcast(ego_next_states, y, masks)        
 
         input = torch.concatenate((ego_states, z), axis=-1)
 

@@ -84,7 +84,7 @@ def train():
                 state_dim=args.obs_shape[0],
                 action_dim=args.action_shape[0],
                 latent_dim=args.embed_dim,
-                adaptive_goal=args.adaptive_goal,
+                goal_type=args.goal_type,
                 forecast_steps=args.forecast_steps,
                 state_embed_hidden_dims=args.state_embed_hidden_dims,
                 encoder_hidden_dims=args.encoder_hidden_dims,
