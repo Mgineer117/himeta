@@ -249,6 +249,8 @@ class ILmodel(nn.Module):
                     new_ego_next_states[prev_idx:ep_idx, :] = ego_next_states[ep_idx-1, :]    
                     #print(new_ego_next_states[:ep_idx+1, :])
                     prev_idx = ep_idx
+                new_ego_next_states[prev_idx:ep_idx+1, :] = ego_next_states[ep_idx, :]    
+                prev_idx = ep_idx + 1
         elif self.goal_type == 'n_step_forward':
             '''
             Set the goal as the state that is n_step forward
