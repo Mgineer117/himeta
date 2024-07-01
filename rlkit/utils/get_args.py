@@ -37,9 +37,9 @@ def get_args():
     parser.add_argument('--decoder-hidden-dims', type=tuple, default=(32, 64, 128, 128))
     parser.add_argument('--categorical-hidden-dims', type=tuple, default=(512, 512))
     parser.add_argument('--recurrent-hidden-size', type=int, default=256)
-    parser.add_argument('--state-embed-hidden-dims', type=tuple, default=(64,))
-    parser.add_argument('--action-embed-hidden-dims', type=tuple, default=(32,))
-    parser.add_argument('--reward-embed-hidden-dims', type=tuple, default=(16,))
+    parser.add_argument('--state-embed-hidden-dims', type=tuple, default=(64, 64))
+    parser.add_argument('--action-embed-hidden-dims', type=tuple, default=(32, 32))
+    parser.add_argument('--reward-embed-hidden-dims', type=tuple, default=(16, 16))
 
     # Learning rates
     parser.add_argument("--actor-lr", type=float, default=7e-4, 
@@ -48,7 +48,7 @@ def get_args():
                         help='PPO-critic learning rate')
     parser.add_argument("--IL-lr", type=float, default=1e-3, 
                         help='Intermediate-level model learning rate')
-    parser.add_argument("--HL-lr", type=float, default=1e-3, 
+    parser.add_argument("--HL-lr", type=float, default=2e-3, 
                         help='High-level model learning rate')
     # PPO parameters
     parser.add_argument("--K-epochs", type=int, default=5, 
