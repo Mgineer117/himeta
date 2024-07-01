@@ -242,7 +242,7 @@ class ILmodel(nn.Module):
             changing_indices = (y[:-1] != y[1:]).nonzero(as_tuple=True)[0] + 1
             for idx in mask_idx:
                 #print(idx)
-                boolean = torch.logical_and(changing_indices > prev_idx, changing_indices <= idx)
+                boolean = torch.logical_and(changing_indices >= prev_idx, changing_indices <= idx)
                 #print(changing_indices[boolean])
                 for ep_idx in changing_indices[boolean]:
                     #print(ep_idx)
