@@ -238,14 +238,17 @@ class ILmodel(nn.Module):
             '''
             Set the goal when the task-label changes
             '''
+            y = torch.argmax(y, dim=-1)
             changing_indices = (y[:-1] != y[1:]).nonzero(as_tuple=True)[0] + 1
             for idx in mask_idx:
+                #print(idx)
                 boolean = torch.logical_and(changing_indices > prev_idx, changing_indices <= idx)
+                #print(changing_indices[boolean])
                 for ep_idx in changing_indices[boolean]:
-                    new_ego_next_states[prev_idx:ep_idx+n, :] = ego_next_states[ep_idx+n, :]    
-                new_ego_next_states[ep_idx:idx+1, :] = ego_next_states[idx, :]
-
-                prev_idx = ep_idx + 1
+                    #print(ep_idx)
+                    new_ego_next_states[prev_idx:ep_idx, :] = ego_next_states[ep_idx-1, :]    
+                    #print(new_ego_next_states[:ep_idx+1, :])
+                    prev_idx = ep_idx
         elif self.goal_type == 'n_step_forward':
             '''
             Set the goal as the state that is n_step forward
@@ -261,11 +264,12 @@ class ILmodel(nn.Module):
             '''
             for idx in mask_idx:
                 for ep_idx in range(prev_idx, idx-n, n):
+                    #print(ep_idx)
                     new_ego_next_states[prev_idx:ep_idx+n, :] = ego_next_states[ep_idx+n, :]    
-                new_ego_next_states[ep_idx:idx+1, :] = ego_next_states[idx, :]
-
-                prev_idx = ep_idx + 1
-        
+                    #print(new_ego_next_states[:ep_idx+n+1, :], new_ego_next_states[:ep_idx+n+1, :].shape)
+                    prev_idx = ep_idx + n
+                new_ego_next_states[prev_idx:idx+1, :] = ego_next_states[idx, :]
+                prev_idx = idx+1
         '''
             for idx in mask_idx:
                 for ep_idx in range(prev_idx, idx-n, n):

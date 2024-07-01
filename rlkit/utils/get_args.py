@@ -76,7 +76,7 @@ def get_args():
                             It yields penalty as the network wants to use wider range of labels.')
     parser.add_argument("--embed-dim", type=int, default=5, 
                         help='embedding dimension both for categorical network and VAE')
-    parser.add_argument("--goal-type", type=str, default='task_subgoal', 
+    parser.add_argument("--goal-type", type=str, default='fix_by_time', 
                         help='task_subgoal, n_step_forward, fix_by_time')
     parser.add_argument("--forecast-steps", type=int, default=100, 
                         help='How many discrete time steps to forecast; to discover the subgoal that is to be this amount ahead')

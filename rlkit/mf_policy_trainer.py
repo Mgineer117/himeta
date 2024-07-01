@@ -120,10 +120,10 @@ class MFPolicyTrainer:
         for e in trange(self._init_epoch, self._epoch, desc=f"Epoch"):
             self.current_epoch = e
 
-            rew_sum, suc_sum, f_suc_sum = self.evaluate(e)
-            last_3_reward_performance.append(rew_sum)
-            last_3_success_performance.append(suc_sum)
-            last_3_final_success_performance.append(f_suc_sum)
+            #rew_sum, suc_sum, f_suc_sum = self.evaluate(e)
+            #last_3_reward_performance.append(rew_sum)
+            #last_3_success_performance.append(suc_sum)
+            #last_3_final_success_performance.append(f_suc_sum)
 
             for it in trange(self._step_per_epoch, desc=f"Training", leave=False):
                 latent_path = self.get_latent_path() if self.visualize_latent_space and it == 0 else None
