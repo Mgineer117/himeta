@@ -67,7 +67,7 @@ def get_args():
                         help='max deviation as e^sig_max ~= 1.6')
 
     # Architecutral parameters
-    parser.add_argument("--encoder-type", type=str, default='gru', 
+    parser.add_argument("--encoder-type", type=str, default='lstm', 
                         help='gru or lstm for encoder architecture')
     parser.add_argument("--drop-out-rate", type=float, default=0.7, 
                         help='used for categorical network and decoder in HL and IL model respectively.')

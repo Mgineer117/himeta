@@ -64,7 +64,7 @@ class RecurrentEncoder(nn.Module):
                 out, hn = self.gru(mdp, self.hn)
                 self.hn = hn # update hidden for next sampling iter
             elif self.encoder_type == 'lstm':
-                out, (hn, cn) = self.lstm(mdp, self.hn)
+                out, (hn, cn) = self.lstm(mdp, (self.hn, self.cn))
                 self.hn = hn # update hidden for next sampling iter
                 self.cn = cn # update hidden for next sampling iter
             else:
