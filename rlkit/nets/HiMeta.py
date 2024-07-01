@@ -198,7 +198,7 @@ class HiMeta(nn.Module):
         y_embedded_states = torch.concatenate((states, y), axis=-1) # for critic; s + y
         z_embedded_states = torch.concatenate((ego_states, z), axis=-1) # for actor; s_ego + z = S - s_other + z
 
-        return y_embedded_states, z_embedded_states, (z, z_mu, z_std), (loss_cat, loss_occ)
+        return y_embedded_states, z_embedded_states, (y, z, z_mu, z_std), (loss_cat, loss_occ)
     
     def learn(self, batch):
         from rlkit.utils.torch import estimate_advantages, estimate_episodic_value
@@ -240,7 +240,7 @@ class HiMeta(nn.Module):
         weight_norm_list = []
         # Update the parameters
         for _ in range(self.K_epochs):
-            y_embedded_states, z_embedded_states, (z, z_mu, z_std), (loss_cat, loss_occ) = self.embed(mdp_tuple) # for LL actor
+            y_embedded_states, z_embedded_states, (y, z, z_mu, z_std), (loss_cat, loss_occ) = self.embed(mdp_tuple) # for LL actor
 
             # COMPUTE THE CRITIC LOSS THAT TRAINS THE HIGH-LEVEL MODEL AND THE CRITIC ITSELF
             r_pred = self.LLmodel.critic(y_embedded_states) # y embedding b/c it is sub-task info while z is action-task info; this is not action-value fn
@@ -250,7 +250,7 @@ class HiMeta(nn.Module):
             loss_occ = loss_occ * value_loss.detach() # to scale
 
             # COMPUTE THE VAE (INTERMEDIATE LEVEL) LOSS
-            (decoder_loss, state_pred_loss, kl_loss) = self.ILmodel.decode(states, next_states, masks, z, z_mu, z_std)
+            (decoder_loss, state_pred_loss, kl_loss) = self.ILmodel.decode(states, next_states, masks, y, z, z_mu, z_std)
 
             # COMPUTE THE ACTOR LOSS
             dist = self.LLmodel.actor(z_embedded_states.detach())
