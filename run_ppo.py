@@ -1,9 +1,9 @@
-import sys
-sys.path.append('../himeta(buffer)')
-
 import uuid
 import os
 import pickle
+import wandb
+
+wandb.require("core")
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -23,22 +23,22 @@ from rlkit import MFPolicyTrainer
 
 
 def train(seed):
-    args=get_args()
+    args = get_args()
     args.device = select_device(args.gpu_idx)
-    args.task = '-'.join((args.env_type, args.agent_type))
+    args.task = "-".join((args.env_type, args.agent_type))
 
     if args.group is None:
-        args.group = '-'.join((args.task, args.algo_name, unique_id))
+        args.group = "-".join((args.task, args.algo_name, unique_id))
     if args.name is None:
-        args.name = '-'.join((args.algo_name, unique_id, "seed:" + str(seed)))
-    args.logdir = os.path.join(args.logdir, args.group)  
-    
+        args.name = "-".join((args.algo_name, unique_id, "seed:" + str(seed)))
+    args.logdir = os.path.join(args.logdir, args.group)
+
     # seed
     seed_all(seed)
 
     # create env
-    if args.env_type =='MetaGym':
-        training_envs, testing_envs = load_metagym_env(args, render_mode='rgb_array')
+    if args.env_type == "MetaGym":
+        training_envs, testing_envs = load_metagym_env(args, render_mode="rgb_array")
     else:
         NotImplementedError
 
@@ -46,7 +46,7 @@ def train(seed):
     args.obs_shape = training_envs[0].observation_space.shape
     args.action_shape = training_envs[0].action_space.shape
     args.max_action = training_envs[0].action_space.high[0]
-    
+
     # get masking indices; saved in args
     get_masking_indices(args)
 
@@ -63,13 +63,19 @@ def train(seed):
     )
 
     buffer = TrajectoryBuffer(
-        max_num_trj = args.num_traj,
+        max_num_trj=args.num_traj,
     )
-        
+
     # import pre-trained model before defining actual models
     if args.import_model:
-        print('Loading previous model parameters....')
-        low_level_model, int_level_model, high_level_model, state_scaler, reward_scaler = pickle.load(open('model/model.p', "rb"))
+        print("Loading previous model parameters....")
+        (
+            low_level_model,
+            int_level_model,
+            high_level_model,
+            state_scaler,
+            reward_scaler,
+        ) = pickle.load(open("model/model.p", "rb"))
     else:
         # define running_stat
         state_scaler = ZFilter(shape=args.obs_shape) if args.normalize_state else None
@@ -87,7 +93,7 @@ def train(seed):
             max_action=args.max_action,
             sigma_min=args.sigma_min,
             sigma_max=args.sigma_max,
-            device=args.device
+            device=args.device,
         )
 
         int_level_model = ILmodel(
@@ -96,8 +102,8 @@ def train(seed):
             latent_dim=args.embed_dim,
             condition_y=args.IL_condition_y,
             condition_z=args.IL_condition_z,
-            z_mean_limit = args.z_mean_limit,
-            z_logstd_limit = args.z_logstd_limit,
+            z_mean_limit=args.z_mean_limit,
+            z_logstd_limit=args.z_logstd_limit,
             goal_type=args.goal_type,
             forecast_steps=args.forecast_steps,
             state_embed_hidden_dims=args.state_embed_hidden_dims,
@@ -106,7 +112,7 @@ def train(seed):
             masking_indices=args.masking_indices,
             policy_masking_indices=args.policy_masking_indices,
             drop_out_rate=args.drop_out_rate,
-            device=args.device
+            device=args.device,
         )
 
         high_level_model = HLmodel(
@@ -121,7 +127,7 @@ def train(seed):
             reward_embed_hidden_dims=args.reward_embed_hidden_dims,
             occ_loss_type=args.occ_loss_type,
             drop_out_rate=args.drop_out_rate,
-            device=args.device
+            device=args.device,
         )
 
     policy = HiMeta(
@@ -146,7 +152,7 @@ def train(seed):
         state_scaler=state_scaler,
         reward_scaler=reward_scaler,
         reward_bonus=args.reward_bonus,
-        device=args.device
+        device=args.device,
     )
 
     # setup logger both using WandB and Tensorboard
@@ -154,7 +160,7 @@ def train(seed):
     logger = WandbLogger(default_cfg, args.project, args.group, args.name, args.logdir)
     logger.save_config(default_cfg, verbose=args.verbose)
 
-    tensorboard_path = os.path.join(logger.log_dir, 'tensorboard')
+    tensorboard_path = os.path.join(logger.log_dir, "tensorboard")
     os.mkdir(tensorboard_path)
     writer = SummaryWriter(log_dir=tensorboard_path)
 
@@ -177,15 +183,16 @@ def train(seed):
         log_interval=args.log_interval,
         visualize_latent_space=args.visualize_latent_space,
         seed=seed,
-        device=args.device
+        device=args.device,
     )
 
     # begin train
     policy_trainer.train()
     torch.cuda.empty_cache()
 
+
 if __name__ == "__main__":
-    args=get_args()
+    args = get_args()
     seeds = args.seeds
     unique_id = str(uuid.uuid4())[:4]
 

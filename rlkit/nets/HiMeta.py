@@ -296,13 +296,13 @@ class HiMeta(nn.Module):
             (y, z): (tuple) computed latent variables
         """
         input_tuple = self.normalization(input_tuple, update=True)
-        states = input_tuple[0]
+        states = torch.from_numpy(input_tuple[0]).to(self.device)
         with torch.no_grad():
             # HL-model; obs and its corresponding categorical inference
             y, _, _ = self.HLmodel(input_tuple)
 
             # IL-model
-            z, z_mu, _, _, _ = self.ILmodel(states.detach(), y.detach())
+            z, z_mu, _, _, _ = self.ILmodel(states, y.detach())
 
             # LL-model
             if self.LLmodel.condition_y:
@@ -331,16 +331,15 @@ class HiMeta(nn.Module):
             (z, z_mu, z_std): (tuple) z information is returned for ILmodel's decoding process
             (loss_cat, loss_occ): (tuple) computed categorical entropy and occupancy loss of y
         """
+        states = input_tuple[0]
         # Embedding for critic
-        states, y, loss_cat, loss_occ = self.HLmodel(input_tuple, is_batch=True)
+        y, loss_cat, loss_occ = self.HLmodel(input_tuple, is_batch=True)
         critic_embedded_states = torch.concatenate(
             (states, y), axis=-1
         )  # for critic; s + y
 
         # Embedding for actor
-        states, z, z_mu, z_std, z_entropy, z_dist = self.ILmodel(
-            states.detach(), y.detach()
-        )
+        z, z_mu, z_std, z_entropy, z_dist = self.ILmodel(states.detach(), y.detach())
 
         if self.LLmodel.condition_y:
             states = torch.concatenate(

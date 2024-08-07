@@ -123,6 +123,7 @@ class LLmodel(nn.Module):
         obs: torch.Tensor,
         deterministic: bool = False,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
+        obs = torch.as_tensor(obs, device=self.device, dtype=torch.float32)
         dist = self.actor(obs)
         if deterministic:
             action = dist.mode()
@@ -234,8 +235,8 @@ class ILmodel(nn.Module):
         y: torch.Tensor,
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # embedding network
-        states = self.torch_delete(states, self.masking_indices, axis=-1)
         states = torch.as_tensor(states, device=self.device, dtype=torch.float32)
+        states = self.delete(states, self.masking_indices, axis=-1)
 
         states = self.pre_embed(states)
         y = torch.as_tensor(y, device=self.device, dtype=torch.float32)
@@ -362,7 +363,7 @@ class ILmodel(nn.Module):
         z_dist: torch.distributions,
         a_dist: torch.distributions,
     ) -> torch.Tensor:
-        ego_next_states = self.torch_delete(next_states, self.masking_indices, axis=-1)
+        ego_next_states = self.delete(next_states, self.masking_indices, axis=-1)
         ego_next_states = self.post_embed(ego_next_states)
 
         new_ego_next_states = self.preprocess4forcast(
@@ -380,11 +381,12 @@ class ILmodel(nn.Module):
 
         return (ELBO_loss, state_pred_loss, kl_loss, action_pred_loss)
 
-    def torch_delete(self, tensor, indices, axis=None):
-        tensor = tensor.cpu().numpy()
-        tensor = np.delete(tensor, indices, axis=axis)
-        tensor = torch.tensor(tensor).to(self.device)
-        return tensor
+    def delete(self, x, indices, axis=None):
+        x = x.cpu().numpy()
+        x = np.delete(x, indices, axis=axis)
+        x = torch.tensor(x).to(self.device)
+
+        return x
 
 
 # MetaWorld Gaussian Mixture Variational Auto-Encoder
