@@ -237,7 +237,7 @@ def get_args():
     parser.add_argument(
         "--LL-condition-y",
         type=bool,
-        default=False,
+        default=True,
         help="max deviation clamping for z as e^sig_min ~= 0.6 and e^sig_max ~= 1.6",
     )
     parser.add_argument(
@@ -251,7 +251,7 @@ def get_args():
     parser.add_argument(
         "--epoch",
         type=int,
-        default=26,
+        default=41,
         help="total number of epochs; every epoch it does evaluation",
     )
     parser.add_argument(
