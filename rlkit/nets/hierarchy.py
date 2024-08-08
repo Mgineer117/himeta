@@ -189,7 +189,7 @@ class ILmodel(nn.Module):
         self.encoder = MLP(
             input_dim=state_dim - self.masking_length + latent_dim,
             hidden_dims=encoder_hidden_dims,
-            activation=nn.ReLU,
+            activation=nn.LeakyReLU,
             device=device,
         )
 
@@ -206,15 +206,15 @@ class ILmodel(nn.Module):
         decoder_input_dim = (
             int(condition_y) * latent_dim
             + int(condition_z) * action_dim
-            # + state_dim
-            # - self.masking_length
+            + state_dim
+            - self.masking_length
         )
 
         self.decoder = MLP(
             input_dim=decoder_input_dim,
             hidden_dims=decoder_hidden_dims,
             output_dim=state_dim - self.masking_length,
-            activation=nn.ReLU,
+            activation=nn.LeakyReLU,
             dropout_rate=self.drop_out_rate,
             device=device,
         )
@@ -358,19 +358,25 @@ class ILmodel(nn.Module):
         self,
         y: torch.Tensor,
         masks: torch.Tensor,
+        states: torch.Tensor,
         next_states: torch.Tensor,
         z: Optional[torch.Tensor],
         z_dist: torch.distributions,
         a_dist: torch.distributions,
     ) -> torch.Tensor:
+        ego_states = self.delete(states, self.masking_indices, axis=-1)
+        ego_states = self.post_embed(ego_states)
+
         ego_next_states = self.delete(next_states, self.masking_indices, axis=-1)
         ego_next_states = self.post_embed(ego_next_states)
 
         new_ego_next_states = self.preprocess4forcast(
             ego_next_states, y.clone().detach(), masks
         )
+        
+        decoder_input = torch.cat((ego_states, z), axis=-1)
 
-        next_state_pred = self.decoder(z)
+        next_state_pred = self.decoder(decoder_input)
 
         state_pred_loss = F.mse_loss(next_state_pred, new_ego_next_states)
         kl_loss = torch.mean(torch.distributions.kl_divergence(z_dist, a_dist))

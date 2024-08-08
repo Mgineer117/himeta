@@ -80,19 +80,19 @@ def get_args():
 
     # Learning rates
     parser.add_argument(
-        "--actor-lr", type=float, default=5e-4, help="PPO-actor learning rate"
+        "--actor-lr", type=float, default=3e-4, help="PPO-actor learning rate"
     )
     parser.add_argument(
-        "--critic-lr", type=float, default=7e-4, help="PPO-critic learning rate"
+        "--critic-lr", type=float, default=5e-4, help="PPO-critic learning rate"
     )
     parser.add_argument(
         "--IL-lr",
         type=float,
-        default=7e-4,
+        default=5e-4,
         help="Intermediate-level model learning rate",
     )
     parser.add_argument(
-        "--HL-lr", type=float, default=7e-4, help="High-level model learning rate"
+        "--HL-lr", type=float, default=5e-4, help="High-level model learning rate"
     )
     # PPO parameters
     parser.add_argument(
@@ -217,7 +217,7 @@ def get_args():
     parser.add_argument(
         "--reward-bonus",
         type=float,
-        default=5.0,
+        default=1.0,
         help="used for categorical network and decoder in HL and IL model respectively.",
     )
 
@@ -237,7 +237,7 @@ def get_args():
     parser.add_argument(
         "--LL-condition-y",
         type=bool,
-        default=True,
+        default=False,
         help="max deviation clamping for z as e^sig_min ~= 0.6 and e^sig_max ~= 1.6",
     )
     parser.add_argument(
