@@ -249,6 +249,9 @@ class ILmodel(nn.Module):
         z_mu = self.mu_network(logits)
         z_std = self.logstd_network(logits)
 
+        z_mu = torch.nn.functional.tanh(
+            torch.clamp(z_std, self.z_mean_min, self.z_mean_max)
+        )  # clamping b/w -5 and 2
         z_std = torch.exp(
             torch.clamp(z_std, self.z_logstd_min, self.z_logstd_max)
         )  # clamping b/w -5 and 2
