@@ -153,13 +153,13 @@ def get_args():
     parser.add_argument(
         "--goal-type",
         type=str,
-        default="n_step_forward",
+        default="fix_by_time",
         help="task_subgoal, n_step_forward, fix_by_time",
     )
     parser.add_argument(
         "--forecast-steps",
         type=int,
-        default=3,
+        default=10,
         help="How many discrete time steps to forecast; to discover the subgoal that is to be this amount ahead",
     )
     parser.add_argument(

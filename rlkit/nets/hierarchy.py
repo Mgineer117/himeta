@@ -180,14 +180,14 @@ class ILmodel(nn.Module):
         """Define model"""
         # embedding has tanh as an activation function while encoder and decoder have ReLU
         self.pre_embed = MLP(
-            input_dim=state_dim - self.masking_length,
-            hidden_dims=(state_dim - self.masking_length,),
+            input_dim=state_dim,
+            hidden_dims=(state_dim,),
             activation=nn.Tanh,
             device=device,
         )
 
         self.encoder = MLP(
-            input_dim=state_dim - self.masking_length + latent_dim,
+            input_dim=state_dim + latent_dim,
             hidden_dims=encoder_hidden_dims,
             activation=nn.LeakyReLU,
             device=device,
@@ -236,7 +236,6 @@ class ILmodel(nn.Module):
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         # embedding network
         states = torch.as_tensor(states, device=self.device, dtype=torch.float32)
-        states = self.delete(states, self.masking_indices, axis=-1)
 
         states = self.pre_embed(states)
         y = torch.as_tensor(y, device=self.device, dtype=torch.float32)
