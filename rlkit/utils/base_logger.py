@@ -30,7 +30,7 @@ class BaseLogger(ABC):
     def __init__(self, log_dir=None, log_txt=True, name=None) -> None:
         super().__init__()
         self.name = name if name is not None else time.strftime("%Y-%m-%d_exp")
-        self.log_dir = osp.join(log_dir, name) if log_dir is not None else None
+        self.log_dir = osp.join(log_dir, self.name) if log_dir is not None else None
         self.checkpoint_dir = os.path.join(self.log_dir, "checkpoint")
         self.log_fname = "progress.txt"
         if log_dir:
@@ -164,10 +164,9 @@ class BaseLogger(ABC):
             )
             print(output)
         if self.log_dir:
-            with open(osp.join(self.log_dir, "config.yaml"), 'w') as out:
-                yaml.dump(
-                    config, out, default_flow_style=False, indent=4, sort_keys=False
-                )
+            with open(osp.join(self.log_dir, "config.json"), 'w') as json_file:
+                json.dump(config_json, json_file, indent=4)
+
 
     def restore_data(self) -> None:
         """Return the metadata from existing log. Not implemented for BaseLogger.

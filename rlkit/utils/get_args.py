@@ -12,7 +12,7 @@ def get_args():
         "--project", type=str, default="hmrl", help="WandB project classification"
     )
     parser.add_argument(
-        "--logdir", type=str, default="log", help="name of the logging folder"
+        "--logdir", type=str, default="log/train_log", help="name of the logging folder"
     )
     parser.add_argument(
         "--group",
@@ -88,11 +88,11 @@ def get_args():
     parser.add_argument(
         "--IL-lr",
         type=float,
-        default=5e-4,
+        default=8e-4,
         help="Intermediate-level model learning rate",
     )
     parser.add_argument(
-        "--HL-lr", type=float, default=5e-4, help="High-level model learning rate"
+        "--HL-lr", type=float, default=8e-4, help="High-level model learning rate"
     )
     # PPO parameters
     parser.add_argument(
@@ -159,7 +159,7 @@ def get_args():
     parser.add_argument(
         "--forecast-steps",
         type=int,
-        default=10,
+        default=5,
         help="How many discrete time steps to forecast; to discover the subgoal that is to be this amount ahead",
     )
     parser.add_argument(
@@ -217,7 +217,7 @@ def get_args():
     parser.add_argument(
         "--reward-bonus",
         type=float,
-        default=1.0,
+        default=5.0,
         help="used for categorical network and decoder in HL and IL model respectively.",
     )
 
@@ -323,7 +323,7 @@ def get_args():
     parser.add_argument(
         "--import-model",
         type=bool,
-        default=False,
+        default=True,
         help="it imports previously trained model",
     )
     parser.add_argument("--gpu-idx", type=int, default=0, help="gpu idx to train")

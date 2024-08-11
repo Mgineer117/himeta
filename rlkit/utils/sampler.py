@@ -129,7 +129,7 @@ class OnlineSampler:
         cv2.destroyAllWindows()
 
     def collect_trajectory(self, pid, queue, env, policy, thread_batch_size, episode_len,
-                           episode_num, deterministic=False):
+                           episode_num, seed, deterministic=False):
         # estimate the batch size to hava a large batch
         batch_size = thread_batch_size + episode_len
         data = self.get_reset_data(batch_size=batch_size)
@@ -138,9 +138,10 @@ class OnlineSampler:
         while current_step < thread_batch_size:
             if ep_num >= episode_num:
                 break
-            # For each episode, apply different seed for stochasticity
-            seed = random.randint(100, 1_000_000)
-            torch.manual_seed(seed)
+            # Only for copied worker, apply different seed for stochasticity
+            if queue is not None:
+                seed = random.randint(1_000, 1_000_000)
+                torch.manual_seed(seed)
             
             # var initialization
             _returns = 0
@@ -226,7 +227,7 @@ class OnlineSampler:
         else:
             return memory, task_dict
 
-    def collect_samples(self, policy, deterministic=False, pid=None, latent_path=None):
+    def collect_samples(self, policy, seed, deterministic=False, pid=None, latent_path=None):
         '''
         All sampling and saving to the memory is done in numpy.
         return: dict() with elements in numpy
@@ -256,12 +257,12 @@ class OnlineSampler:
                     if worker_idx == self.total_num_worker - 1:
                         '''Main thread process'''
                         memory, task_dict = self.collect_trajectory(worker_idx, None, env, policy, self.thread_batch_size,
-                                                         self.episode_len, self.episode_num, deterministic)
+                                                         self.episode_len, self.episode_num, seed, deterministic)
                         task_dict_list[-1] = task_dict
                     else:
                         '''Sub-thread process'''
                         worker_args = (worker_idx, queue, env, policy, self.thread_batch_size, 
-                                self.episode_len, self.episode_num, deterministic)
+                                self.episode_len, self.episode_num, seed, deterministic)
                         p = multiprocessing.Process(target=self.collect_trajectory, args=worker_args)
                         processes.append(p)
                         p.start()

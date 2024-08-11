@@ -14,7 +14,7 @@ def select_device(gpu_idx=0):
     print("============================================================================================")
     # set device to cpu or cuda
     device = torch.device('cpu')
-    if(torch.cuda.is_available()): 
+    if(torch.cuda.is_available()) and gpu_idx is not None: 
         device = torch.device('cuda:'+str(gpu_idx)) 
         torch.cuda.empty_cache()
         print("Device set to : " + str(torch.cuda.get_device_name(device)))
