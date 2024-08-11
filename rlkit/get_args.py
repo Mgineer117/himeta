@@ -323,7 +323,7 @@ def get_args():
     parser.add_argument(
         "--import-model",
         type=bool,
-        default=True,
+        default=False,
         help="it imports previously trained model",
     )
     parser.add_argument("--gpu-idx", type=int, default=0, help="gpu idx to train")
