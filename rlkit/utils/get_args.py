@@ -88,11 +88,11 @@ def get_args():
     parser.add_argument(
         "--IL-lr",
         type=float,
-        default=8e-4,
+        default=7e-4,
         help="Intermediate-level model learning rate",
     )
     parser.add_argument(
-        "--HL-lr", type=float, default=8e-4, help="High-level model learning rate"
+        "--HL-lr", type=float, default=7e-4, help="High-level model learning rate"
     )
     # PPO parameters
     parser.add_argument(
