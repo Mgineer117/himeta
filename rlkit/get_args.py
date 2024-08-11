@@ -9,7 +9,7 @@ def get_args():
     parser = argparse.ArgumentParser()
     """WandB and Logging parameters"""
     parser.add_argument(
-        "--project", type=str, default="hmrl", help="WandB project classification"
+        "--project", type=str, default="himeta", help="WandB project classification"
     )
     parser.add_argument(
         "--logdir", type=str, default="log/train_log", help="name of the logging folder"

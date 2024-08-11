@@ -10,7 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 
 from rlkit.utils.torch import seed_all, select_device
 from rlkit.utils.functions import get_masking_indices
-from rlkit.utils.get_args import get_args
+from rlkit.get_args import get_args
 from rlkit.utils.zfilter import ZFilter
 
 from rlkit.nets.hierarchy import LLmodel, ILmodel, HLmodel
